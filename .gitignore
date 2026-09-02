@@ -16,3 +16,5 @@ SKILL.md
 *service-account*.json
 service-account.json
 *.pem
+.env.*
+!.env.example
