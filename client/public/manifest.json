@@ -1,0 +1,19 @@
+{
+  "name": "NimStreak",
+  "short_name": "NimStreak",
+  "description": "Stake NIM on your habits. Complete your streak, earn rewards. Miss a day, lose your stake.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0C14",
+  "theme_color": "#E9B213",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "categories": ["lifestyle", "productivity", "finance"],
+  "nimiq": {
+    "app_name": "NimStreak",
+    "permissions": ["payment", "address"]
+  }
+}
