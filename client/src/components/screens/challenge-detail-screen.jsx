@@ -39,6 +39,8 @@ export function ChallengeDetailScreen({
   const cardRef = useRef(null);
   const bonusRef = useRef(null);
 
+  const cleanWallet = (walletAddress || "").replace(/\s+/g, "").toUpperCase();
+
   // Fetch full challenge data & participant calendar
   const loadDetails = async () => {
     try {
@@ -57,8 +59,8 @@ export function ChallengeDetailScreen({
         setLeaderboard(lData);
       }
 
-      if (walletAddress) {
-        const calRes = await fetch(`${apiBaseUrl}/challenges/${challengeId}/calendar/${walletAddress}`);
+      if (cleanWallet) {
+        const calRes = await fetch(`${apiBaseUrl}/challenges/${challengeId}/calendar/${cleanWallet}`);
         if (calRes.ok) {
           const calJson = await calRes.json();
           setCalendarData(calJson.calendar || []);
@@ -73,7 +75,7 @@ export function ChallengeDetailScreen({
 
   useEffect(() => {
     loadDetails();
-  }, [challengeId, walletAddress]);
+  }, [challengeId, cleanWallet]);
 
   // Calendar animation on render
   useEffect(() => {
@@ -113,7 +115,7 @@ export function ChallengeDetailScreen({
   }, [socket, challengeId]);
 
   const participant = challengeData?.participants?.find(
-    (p) => (p.wallet_address || "").toUpperCase() === (walletAddress || "").toUpperCase()
+    (p) => (p.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet
   );
 
   const isParticipant = Boolean(participant);
@@ -123,7 +125,7 @@ export function ChallengeDetailScreen({
 
   // Check if payout has already been made
   const payoutRecord = challengeData?.payouts?.find(
-    (p) => (p.wallet_address || "").toUpperCase() === (walletAddress || "").toUpperCase()
+    (p) => (p.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet
   );
   const hasClaimed = Boolean(payoutRecord && payoutRecord.status === "sent");
 
@@ -491,7 +493,7 @@ export function ChallengeDetailScreen({
             <p className="empty-sub">No participants have joined yet.</p>
           ) : (
             leaderboard.map((item, idx) => {
-              const isCurrentUser = (item.wallet_address || "").toUpperCase() === (walletAddress || "").toUpperCase();
+              const isCurrentUser = (item.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet;
               const rankIcon = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
 
               return (
