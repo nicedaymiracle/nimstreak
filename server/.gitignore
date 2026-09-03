@@ -1,0 +1,8 @@
+
+# Firebase service account credentials
+*firebase-adminsdk*.json
+
+# Local environment files
+.env
+.env.*
+!.env.example
