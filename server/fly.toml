@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for nimword-server on 2026-08-27T00:52:01+01:00
+# fly.toml app configuration file generated for nimstreak-api
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -7,6 +7,18 @@ app = 'nimstreak-api'
 primary_region = 'lhr'
 
 [build]
+
+[env]
+  PORT = "8080"
+  NIMIQ_NETWORK = "mainnet"
+  NIMIQ_NETWORK_ID = "1"
+  NIMIQ_RPC_URL = "https://rpc.nimiqwatch.com"
+  NIMIQ_TREASURY_ADDRESS = "NQ68 LS47 5LF6 C7CU MVB6 KL55 YSFG PEXJ ADJ0"
+  MIN_STAKE_NIM = "0.5"
+  MAX_STAKE_NIM = "100"
+  DEFAULT_STAKE_NIM = "1"
+  TREASURY_FEE_PERCENT = "10"
+
 [http_service]
   internal_port = 8080
   force_https = true
