@@ -6,6 +6,7 @@ import {
   DEFAULT_TREASURY_ADDRESS,
   NIM_STAKE_LUNA,
   NIMSTREAK_STORAGE_KEY,
+  NIMIQ_NETWORK,
 } from "../config/nimiq.js";
 import {
   formatNimiqAddress,
@@ -13,6 +14,64 @@ import {
   isNimiqAddress,
   getNimiqAvatar,
 } from "../utils/ui-helpers.js";
+
+const RPC_URL =
+  NIMIQ_NETWORK === "testnet"
+    ? "https://rpc.testnet.nimiqwatch.com"
+    : "https://rpc.nimiqwatch.com";
+
+const WATCH_API_URL =
+  NIMIQ_NETWORK === "testnet"
+    ? "https://api.testnet.nimiq.watch"
+    : "https://api.nimiq.watch";
+
+async function fetchTransactionData(txHash, maxAttempts = 6, delayMs = 600) {
+  const cleanHash = String(txHash || "").trim().toLowerCase();
+  if (!/^[0-9a-fA-F]{64}$/.test(cleanHash)) return null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // 1. Try Nimiq JSON-RPC
+    try {
+      const rpcRes = await fetch(RPC_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "getTransactionByHash",
+          params: [cleanHash],
+          id: Date.now(),
+        }),
+      });
+      if (rpcRes.ok) {
+        const json = await rpcRes.json();
+        if (json?.result?.data) {
+          return json.result.data;
+        }
+      }
+    } catch (rpcErr) {
+      console.debug(`[useNimiqWallet] RPC attempt ${attempt} notice:`, rpcErr?.message || rpcErr);
+    }
+
+    // 2. Try api.nimiq.watch REST endpoint
+    try {
+      const restRes = await fetch(`${WATCH_API_URL}/transaction/${cleanHash}`);
+      if (restRes.ok) {
+        const json = await restRes.json();
+        if (json && !json.error && (json.from || json.sender)) {
+          return json;
+        }
+      }
+    } catch (restErr) {
+      console.debug(`[useNimiqWallet] REST attempt ${attempt} notice:`, restErr?.message || restErr);
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  return null;
+}
 
 const STORAGE_KEY = NIMSTREAK_STORAGE_KEY || "nimstreak_wallet_address";
 
@@ -220,42 +279,105 @@ export function useNimiqWallet() {
       // 1. Try Official Mini App SDK Provider
       const sdk = await getSdkProvider();
       if (sdk) {
+        let txResult = null;
         if (message && typeof sdk.sendBasicTransactionWithData === "function") {
-          const txHash = await sdk.sendBasicTransactionWithData({
+          txResult = await sdk.sendBasicTransactionWithData({
             recipient: targetRecipient,
             value: valueLuna,
             data: message,
             fee: 0,
           });
-          if (txHash) return { hash: txHash };
         } else if (typeof sdk.sendBasicTransaction === "function") {
-          const txHash = await sdk.sendBasicTransaction({
+          txResult = await sdk.sendBasicTransaction({
             recipient: targetRecipient,
             value: valueLuna,
             fee: 0,
           });
-          if (txHash) return { hash: txHash };
+        }
+
+        if (txResult) {
+          if (typeof txResult === "object" && txResult.error) {
+            throw new Error(txResult.error.message || "Transaction rejected by Nimiq Pay.");
+          }
+          const cleanTxHash = String(typeof txResult === "string" ? txResult : txResult.hash || "").trim();
+          if (!cleanTxHash) {
+            throw new Error("No transaction hash returned from Nimiq Pay.");
+          }
+
+          // Fetch on-chain transaction details to determine the true sender account
+          const txData = await fetchTransactionData(cleanTxHash);
+
+          let actualSender = null;
+          if (txData) {
+            const rawSender = txData.from || txData.sender;
+            if (rawSender && isNimiqAddress(rawSender)) {
+              const formattedSender = formatNimiqAddress(rawSender);
+              const cleanActual = formattedSender.replace(/\s+/g, "").toUpperCase();
+
+              // Verify that the actual sender belongs to accounts returned by sdk.listAccounts()
+              let accounts = [];
+              try {
+                const listRes = await sdk.listAccounts();
+                if (Array.isArray(listRes)) {
+                  accounts = listRes;
+                }
+              } catch (listErr) {
+                console.warn("[useNimiqWallet] Could not retrieve accounts list for verification:", listErr);
+              }
+
+              const accountMatches = accounts.some((acc) => {
+                const cleanAcc = (typeof acc === "string" ? acc : acc?.address || "")
+                  .replace(/\s+/g, "")
+                  .toUpperCase();
+                return cleanAcc === cleanActual;
+              });
+
+              if (!accountMatches) {
+                throw new Error(
+                  `Payment transaction sender (${formattedSender}) does not match any connected Nimiq Pay account.`
+                );
+              }
+
+              actualSender = formattedSender;
+
+              // Reconcile hook state and localStorage with actual paying account
+              persistWalletAddress(actualSender);
+              setWalletAddress(actualSender);
+              setWalletStatus(`Connected via Nimiq Pay as ${shortenNimiqAddress(actualSender)}`);
+
+              // Refresh wallet balance using actual sender
+              await fetchBalance(actualSender);
+            }
+          }
+
+          return {
+            hash: cleanTxHash,
+            sender: actualSender || walletAddress,
+          };
         }
       }
 
       // 2. Try Injected window.nimiq Provider
       const injectedNimiq = getNimiqProvider();
       if (injectedNimiq) {
+        let txResult = null;
         if (message && typeof injectedNimiq.sendBasicTransactionWithData === "function") {
-          const txHash = await injectedNimiq.sendBasicTransactionWithData({
+          txResult = await injectedNimiq.sendBasicTransactionWithData({
             recipient: targetRecipient,
             value: valueLuna,
             data: message,
             fee: 0,
           });
-          if (txHash) return { hash: txHash };
         } else if (typeof injectedNimiq.sendBasicTransaction === "function") {
-          const txHash = await injectedNimiq.sendBasicTransaction({
+          txResult = await injectedNimiq.sendBasicTransaction({
             recipient: targetRecipient,
             value: valueLuna,
             fee: 0,
           });
-          if (txHash) return { hash: txHash };
+        }
+        if (txResult) {
+          const cleanTxHash = String(typeof txResult === "string" ? txResult : txResult.hash || "").trim();
+          return { hash: cleanTxHash, sender: walletAddress };
         }
       }
 
@@ -275,14 +397,21 @@ export function useNimiqWallet() {
           checkoutRes?.transactionHash ||
           checkoutRes?.serializedTx;
 
-        if (hash) return { hash };
+        if (hash) {
+          const cleanHash = String(hash).trim();
+          const hubSender = checkoutRes?.address || checkoutRes?.account?.address;
+          const finalSender = hubSender && isNimiqAddress(hubSender)
+            ? formatNimiqAddress(hubSender)
+            : walletAddress;
+          return { hash: cleanHash, sender: finalSender };
+        }
       }
 
       throw new Error(
         "Nimiq payment provider not available. Please open inside Nimiq Pay or connect a Nimiq wallet to stake."
       );
     },
-    [getSdkProvider, getNimiqProvider]
+    [getSdkProvider, getNimiqProvider, fetchBalance, walletAddress]
   );
 
   // Connect with manual / pasted Nimiq address
