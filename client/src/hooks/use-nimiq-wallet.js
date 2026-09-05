@@ -393,11 +393,8 @@ export function useNimiqWallet() {
               // STABLE USER PROFILE IDENTITY:
               // The user's NimStreak identity remains the stable profile (walletAddress).
               // Do NOT mutate walletAddress or localStorage to actualSender.
-              // Refresh wallet balance for the stable wallet and actual sender
+              // Refresh wallet balance for the active stable profile wallet
               await fetchBalance(walletAddress);
-              if (actualSender !== walletAddress) {
-                await fetchBalance(actualSender);
-              }
             }
           }
 

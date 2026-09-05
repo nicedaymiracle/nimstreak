@@ -593,10 +593,10 @@ export async function getChallengeParticipants(challengeId) {
       // Fetch profiles to attach display_name
       const enriched = await Promise.all(
         participants.map(async (p) => {
-          const prof = await getProfile(p.wallet_address);
+          const prof = await getProfile(p.profile_wallet || p.wallet_address);
           return {
             ...p,
-            display_name: prof?.display_name || `Streaker_${p.wallet_address.slice(-4)}`,
+            display_name: prof?.display_name || `Streaker_${(p.profile_wallet || p.wallet_address).slice(-4)}`,
           };
         })
       );
@@ -610,10 +610,10 @@ export async function getChallengeParticipants(challengeId) {
   const list = [];
   for (const p of memoryStore.participants.values()) {
     if (p.challenge_id === challengeId) {
-      const prof = memoryStore.profiles.get(p.wallet_address);
+      const prof = memoryStore.profiles.get(p.profile_wallet || p.wallet_address);
       list.push({
         ...p,
-        display_name: prof?.display_name || `Streaker_${p.wallet_address.slice(-4)}`,
+        display_name: prof?.display_name || `Streaker_${(p.profile_wallet || p.wallet_address).slice(-4)}`,
       });
     }
   }

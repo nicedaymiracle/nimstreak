@@ -499,19 +499,22 @@ export function ChallengeDetailScreen({
             <p className="empty-sub">No participants have joined yet.</p>
           ) : (
             leaderboard.map((item, idx) => {
-              const isCurrentUser = (item.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet;
+              const isCurrentUser =
+                (item.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet ||
+                (item.profile_wallet || "").replace(/\s+/g, "").toUpperCase() === cleanWallet;
+              const displayAddress = item.profile_wallet || item.wallet_address;
               const rankIcon = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
 
               return (
                 <div
-                  key={item.id || item.wallet_address}
+                  key={item.id || displayAddress}
                   className={`leaderboard-row ${isCurrentUser ? "leaderboard-row--me" : ""}`}
                 >
                   <span className="leaderboard-row__rank">{rankIcon}</span>
-                  <NimiqIdenticon address={item.wallet_address} size={32} />
+                  <NimiqIdenticon address={displayAddress} size={32} />
                   <div className="leaderboard-row__info">
                     <span className="leaderboard-row__name">
-                      {item.display_name || shortenWalletAddress(item.wallet_address)}
+                      {item.display_name || shortenWalletAddress(displayAddress)}
                       {isCurrentUser && <span className="me-pill">You</span>}
                     </span>
                     <span className="leaderboard-row__status">
