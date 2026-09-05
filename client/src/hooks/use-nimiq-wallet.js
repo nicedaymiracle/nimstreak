@@ -8,6 +8,7 @@ import {
   NIMSTREAK_STORAGE_KEY,
   NIMIQ_NETWORK,
 } from "../config/nimiq.js";
+import { API_BASE_URL } from "../config/app-config.js";
 import {
   formatNimiqAddress,
   shortenNimiqAddress,
@@ -92,11 +93,13 @@ function getPreferredWalletAddress() {
   }
 }
 
-function persistWalletAddress(address) {
+function persistWalletAddress(address, saveAsPreferred = true) {
   try {
     if (address) {
       localStorage.setItem(STORAGE_KEY, address);
-      localStorage.setItem(PREFERRED_WALLET_KEY, address);
+      if (saveAsPreferred) {
+        localStorage.setItem(PREFERRED_WALLET_KEY, address);
+      }
     } else {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -107,6 +110,91 @@ function clearStoredWalletAddress() {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch {}
+}
+
+/**
+ * Non-blocking check for existing NimStreak challenges owned by a wallet address.
+ * Uses bounded timeout to guarantee connectWallet() never hangs or throws.
+ */
+async function checkAccountChallenges(cleanAddress, timeoutMs = 2000) {
+  if (!cleanAddress || !isNimiqAddress(cleanAddress)) return 0;
+  try {
+    const baseUrl = API_BASE_URL || "/api";
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    const res = await fetch(`${baseUrl}/my-challenges/${cleanAddress}`, {
+      signal: controller?.signal,
+    });
+    if (timer) clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data?.all) ? data.all.length : 0;
+    }
+  } catch (err) {
+    console.debug(`[useNimiqWallet] Challenge count check notice for ${cleanAddress}:`, err?.message || err);
+  }
+  return 0;
+}
+
+/**
+ * Resolves the best active account from a list of connected Nimiq accounts:
+ * - If a stored/preferred account exists and owns challenges, preserves it.
+ * - If a stored/preferred account has 0 challenges, but another connected account owns challenges, selects the account with challenges (recovering from polluted preference).
+ * - If no account has challenges, falls back safely to accounts[0] WITHOUT polluting PREFERRED_WALLET_KEY.
+ */
+async function resolveBestAccount(accounts) {
+  if (!Array.isArray(accounts) || accounts.length === 0) {
+    return { selectedAddress: null, shouldPersistPreferred: false };
+  }
+
+  const cleanAccounts = accounts
+    .map((acc) => {
+      const raw = typeof acc === "string" ? acc : acc?.address || "";
+      const clean = raw.replace(/\s+/g, "").toUpperCase();
+      return { raw, clean, original: acc };
+    })
+    .filter((item) => item.clean && isNimiqAddress(item.clean));
+
+  if (cleanAccounts.length === 0) {
+    return { selectedAddress: null, shouldPersistPreferred: false };
+  }
+
+  const candidateStored = getStoredWalletAddress() || getPreferredWalletAddress();
+  const cleanStored = candidateStored ? candidateStored.replace(/\s+/g, "").toUpperCase() : "";
+
+  // Query challenge counts for all candidate accounts in parallel with bounded timeout
+  const challengeResults = await Promise.allSettled(
+    cleanAccounts.map((item) => checkAccountChallenges(item.clean))
+  );
+
+  cleanAccounts.forEach((item, idx) => {
+    const res = challengeResults[idx];
+    item.challengeCount = res && res.status === "fulfilled" && typeof res.value === "number" ? res.value : 0;
+  });
+
+  const candidateMatch = cleanStored && isNimiqAddress(cleanStored)
+    ? cleanAccounts.find((item) => item.clean === cleanStored)
+    : null;
+
+  // 1. If candidate exists in accounts and has challenges, preserve it!
+  if (candidateMatch && candidateMatch.challengeCount > 0) {
+    return { selectedAddress: candidateMatch.raw, shouldPersistPreferred: true };
+  }
+
+  // 2. If candidate has no challenges (or does not exist), check if another connected account owns challenges!
+  const accountWithChallenges = cleanAccounts.find((item) => item.challengeCount > 0);
+  if (accountWithChallenges) {
+    return { selectedAddress: accountWithChallenges.raw, shouldPersistPreferred: true };
+  }
+
+  // 3. If candidate exists (even with 0 challenges) and no other account has challenges, preserve candidate
+  if (candidateMatch) {
+    return { selectedAddress: candidateMatch.raw, shouldPersistPreferred: true };
+  }
+
+  // 4. Default fallback: no candidate and no account has challenges -> accounts[0]
+  // Do NOT blindly save accounts[0] as preferred when used merely as initial fallback
+  return { selectedAddress: cleanAccounts[0].raw, shouldPersistPreferred: false };
 }
 
 let hubApiInstance = null;
@@ -195,39 +283,17 @@ export function useNimiqWallet() {
       const sdk = await getSdkProvider();
       if (sdk && typeof sdk.listAccounts === "function") {
         const accounts = await sdk.listAccounts();
-        if (Array.isArray(accounts) && accounts.length > 0) {
-          // Read previously stored / preferred account
-          const candidateStored = getStoredWalletAddress() || getPreferredWalletAddress();
-          const cleanStored = candidateStored ? candidateStored.replace(/\s+/g, "").toUpperCase() : "";
+        const { selectedAddress, shouldPersistPreferred } = await resolveBestAccount(accounts);
 
-          let selectedRawAddr = null;
-
-          // If a stored wallet exists and is a valid Nimiq address, check if it matches an account in Nimiq Pay
-          if (cleanStored && isNimiqAddress(cleanStored)) {
-            const matchingAcc = accounts.find((acc) => {
-              const accStr = typeof acc === "string" ? acc : acc?.address || "";
-              return accStr.replace(/\s+/g, "").toUpperCase() === cleanStored;
-            });
-            if (matchingAcc) {
-              selectedRawAddr = typeof matchingAcc === "string" ? matchingAcc : matchingAcc?.address;
-            }
-          }
-
-          // Fall back to accounts[0] if no stored address or stored address no longer in accounts
-          if (!selectedRawAddr) {
-            selectedRawAddr = typeof accounts[0] === "string" ? accounts[0] : accounts[0]?.address;
-          }
-
-          if (selectedRawAddr && isNimiqAddress(selectedRawAddr)) {
-            const formatted = formatNimiqAddress(selectedRawAddr);
-            persistWalletAddress(formatted);
-            setWalletAddress(formatted);
-            setIsNimiqPay(true);
-            setWalletStatus(`Connected via Nimiq Pay as ${shortenNimiqAddress(formatted)}`);
-            await fetchBalance(formatted);
-            setIsConnecting(false);
-            return formatted;
-          }
+        if (selectedAddress && isNimiqAddress(selectedAddress)) {
+          const formatted = formatNimiqAddress(selectedAddress);
+          persistWalletAddress(formatted, shouldPersistPreferred);
+          setWalletAddress(formatted);
+          setIsNimiqPay(true);
+          setWalletStatus(`Connected via Nimiq Pay as ${shortenNimiqAddress(formatted)}`);
+          await fetchBalance(formatted);
+          setIsConnecting(false);
+          return formatted;
         }
       }
 
@@ -248,35 +314,17 @@ export function useNimiqWallet() {
           if (resAddr) rawAccounts = [resAddr];
         }
 
-        if (rawAccounts.length > 0) {
-          const candidateStored = getStoredWalletAddress() || getPreferredWalletAddress();
-          const cleanStored = candidateStored ? candidateStored.replace(/\s+/g, "").toUpperCase() : "";
+        const { selectedAddress, shouldPersistPreferred } = await resolveBestAccount(rawAccounts);
 
-          let selectedAddr = null;
-          if (cleanStored && isNimiqAddress(cleanStored)) {
-            const matching = rawAccounts.find((acc) => {
-              const str = typeof acc === "string" ? acc : acc?.address || "";
-              return str.replace(/\s+/g, "").toUpperCase() === cleanStored;
-            });
-            if (matching) {
-              selectedAddr = typeof matching === "string" ? matching : matching?.address;
-            }
-          }
-
-          if (!selectedAddr) {
-            selectedAddr = typeof rawAccounts[0] === "string" ? rawAccounts[0] : rawAccounts[0]?.address;
-          }
-
-          if (selectedAddr && isNimiqAddress(selectedAddr)) {
-            const formatted = formatNimiqAddress(selectedAddr);
-            persistWalletAddress(formatted);
-            setWalletAddress(formatted);
-            // Do NOT set isNimiqPay here — window.nimiq may exist outside Nimiq Pay
-            setWalletStatus(`Connected as ${shortenNimiqAddress(formatted)}`);
-            await fetchBalance(formatted);
-            setIsConnecting(false);
-            return formatted;
-          }
+        if (selectedAddress && isNimiqAddress(selectedAddress)) {
+          const formatted = formatNimiqAddress(selectedAddress);
+          persistWalletAddress(formatted, shouldPersistPreferred);
+          setWalletAddress(formatted);
+          // Do NOT set isNimiqPay here — window.nimiq may exist outside Nimiq Pay
+          setWalletStatus(`Connected as ${shortenNimiqAddress(formatted)}`);
+          await fetchBalance(formatted);
+          setIsConnecting(false);
+          return formatted;
         }
       }
 
