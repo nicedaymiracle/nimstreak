@@ -115,7 +115,9 @@ export function ChallengeDetailScreen({
   }, [socket, challengeId]);
 
   const participant = challengeData?.participants?.find(
-    (p) => (p.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet
+    (p) =>
+      (p.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet ||
+      (p.profile_wallet || "").replace(/\s+/g, "").toUpperCase() === cleanWallet
   );
 
   const isParticipant = Boolean(participant);
@@ -125,7 +127,11 @@ export function ChallengeDetailScreen({
 
   // Check if payout has already been made
   const payoutRecord = challengeData?.payouts?.find(
-    (p) => (p.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet
+    (p) => {
+      const pAddr = (p.wallet_address || "").replace(/\s+/g, "").toUpperCase();
+      const partAddr = (participant?.wallet_address || "").replace(/\s+/g, "").toUpperCase();
+      return pAddr === cleanWallet || (partAddr && pAddr === partAddr);
+    }
   );
   const hasClaimed = Boolean(payoutRecord && payoutRecord.status === "sent");
 

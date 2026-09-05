@@ -456,12 +456,15 @@ export async function createChallenge(challengeData, creatorParticipantData) {
   };
 
   const normCreator = normalizeAddress(challengeData.created_by);
-  const partDocId = `${challengeId}_${normCreator}`;
+  const normFunding = normalizeAddress(creatorParticipantData?.wallet_address || normCreator);
+  const normProfile = normalizeAddress(creatorParticipantData?.profile_wallet || normCreator);
+  const partDocId = `${challengeId}_${normFunding}`;
   const fullParticipant = {
     ...creatorParticipantData,
-    id: `part_${challengeId}_${normCreator.slice(0, 6)}`,
+    id: `part_${challengeId}_${normFunding.slice(0, 6)}`,
     challenge_id: challengeId,
-    wallet_address: normCreator,
+    wallet_address: normFunding,
+    profile_wallet: normProfile,
     joined_at: new Date().toISOString(),
   };
 
@@ -470,14 +473,14 @@ export async function createChallenge(challengeData, creatorParticipantData) {
       const batch = dbInstance.batch();
       const chalRef = dbInstance.collection("challenges").doc(challengeId);
       const partRef = dbInstance.collection("challenge_participants").doc(partDocId);
-      const profRef = dbInstance.collection("nimstreak_profiles").doc(normCreator);
+      const profRef = dbInstance.collection("nimstreak_profiles").doc(normProfile);
 
       batch.set(chalRef, fullChallenge);
       batch.set(partRef, fullParticipant);
       batch.set(
         profRef,
         {
-          wallet_address: normCreator,
+          wallet_address: normProfile,
           total_challenges: FieldValue.increment(1),
           total_nim_staked: FieldValue.increment(Number(fullChallenge.stake_nim) || 0),
           updated_at: new Date().toISOString(),
@@ -488,7 +491,7 @@ export async function createChallenge(challengeData, creatorParticipantData) {
       await batch.commit();
 
       // Award first_challenge badge
-      await awardBadge(normCreator, "first_challenge", challengeId);
+      await awardBadge(normProfile, "first_challenge", challengeId);
 
       return fullChallenge;
     } catch (err) {
@@ -503,13 +506,13 @@ export async function createChallenge(challengeData, creatorParticipantData) {
     memoryStore.usedTxHashes.add(fullParticipant.stake_tx_hash.trim().toLowerCase());
   }
 
-  const prof = await getProfile(normCreator);
-  await updateProfile(normCreator, {
+  const prof = await getProfile(normProfile);
+  await updateProfile(normProfile, {
     total_challenges: (prof.total_challenges || 0) + 1,
     total_nim_staked: (prof.total_nim_staked || 0) + (Number(fullChallenge.stake_nim) || 0),
   });
 
-  await awardBadge(normCreator, "first_challenge", challengeId);
+  await awardBadge(normProfile, "first_challenge", challengeId);
   return fullChallenge;
 }
 
@@ -541,14 +544,40 @@ export async function getParticipant(challengeId, walletAddress) {
 
   if (isFirestoreConnected && dbInstance) {
     try {
+      // 1. Fast path: check document by ${challengeId}_${norm}
       const doc = await dbInstance.collection("challenge_participants").doc(partDocId).get();
-      return doc.exists ? doc.data() : null;
+      if (doc.exists) {
+        return doc.data();
+      }
+
+      // 2. Fallback: lookup by profile_wallet
+      const snap = await dbInstance
+        .collection("challenge_participants")
+        .where("challenge_id", "==", challengeId)
+        .where("profile_wallet", "==", norm)
+        .limit(1)
+        .get();
+
+      if (!snap.empty) {
+        return snap.docs[0].data();
+      }
+      return null;
     } catch (err) {
       console.warn("[firestore:getParticipant] error:", err.message);
     }
   }
 
-  return memoryStore.participants.get(partDocId) || null;
+  // Memory fallback
+  const direct = memoryStore.participants.get(partDocId);
+  if (direct) return direct;
+
+  for (const p of memoryStore.participants.values()) {
+    if (p.challenge_id === challengeId && (p.wallet_address === norm || p.profile_wallet === norm)) {
+      return p;
+    }
+  }
+
+  return null;
 }
 
 export async function getChallengeParticipants(challengeId) {
@@ -616,13 +645,15 @@ export async function checkReplayStakeTxHash(txHash) {
 }
 
 export async function addParticipant(challengeId, participantData) {
-  const norm = normalizeAddress(participantData.wallet_address);
-  const partDocId = `${challengeId}_${norm}`;
+  const normFunding = normalizeAddress(participantData.wallet_address);
+  const normProfile = normalizeAddress(participantData.profile_wallet || participantData.wallet_address);
+  const partDocId = `${challengeId}_${normFunding}`;
   const fullPart = {
     ...participantData,
-    id: `part_${challengeId}_${norm.slice(0, 6)}_${Date.now()}`,
+    id: `part_${challengeId}_${normFunding.slice(0, 6)}_${Date.now()}`,
     challenge_id: challengeId,
-    wallet_address: norm,
+    wallet_address: normFunding,
+    profile_wallet: normProfile,
     status: participantData.status || "active",
     current_streak: participantData.current_streak || 0,
     longest_streak: participantData.longest_streak || 0,
@@ -634,13 +665,13 @@ export async function addParticipant(challengeId, participantData) {
     try {
       const batch = dbInstance.batch();
       const partRef = dbInstance.collection("challenge_participants").doc(partDocId);
-      const profRef = dbInstance.collection("nimstreak_profiles").doc(norm);
+      const profRef = dbInstance.collection("nimstreak_profiles").doc(normProfile);
 
       batch.set(partRef, fullPart);
       batch.set(
         profRef,
         {
-          wallet_address: norm,
+          wallet_address: normProfile,
           total_challenges: FieldValue.increment(1),
           total_nim_staked: FieldValue.increment(Number(fullPart.stake_amount) || 0),
           updated_at: new Date().toISOString(),
@@ -660,8 +691,8 @@ export async function addParticipant(challengeId, participantData) {
     memoryStore.usedTxHashes.add(fullPart.stake_tx_hash.trim().toLowerCase());
   }
 
-  const prof = await getProfile(norm);
-  await updateProfile(norm, {
+  const prof = await getProfile(normProfile);
+  await updateProfile(normProfile, {
     total_challenges: (prof.total_challenges || 0) + 1,
     total_nim_staked: (prof.total_nim_staked || 0) + (Number(fullPart.stake_amount) || 0),
   });
@@ -711,24 +742,26 @@ export async function getCheckin(challengeId, walletAddress, checkinDate) {
 }
 
 export async function recordCheckin(checkinData, streakUpdate) {
-  const norm = normalizeAddress(checkinData.wallet_address);
-  const checkinDocId = `${checkinData.challenge_id}_${norm}_${checkinData.checkin_date}`;
+  const normFunding = normalizeAddress(checkinData.wallet_address);
+  const normProfile = normalizeAddress(checkinData.profile_wallet || checkinData.wallet_address);
+  const checkinDocId = `${checkinData.challenge_id}_${normFunding}_${checkinData.checkin_date}`;
   const fullCheckin = {
     ...checkinData,
     id: `chk_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
-    wallet_address: norm,
+    wallet_address: normFunding,
+    profile_wallet: normProfile,
     verified: true,
     created_at: new Date().toISOString(),
   };
 
-  const partDocId = `${checkinData.challenge_id}_${norm}`;
+  const partDocId = `${checkinData.challenge_id}_${normFunding}`;
 
   if (isFirestoreConnected && dbInstance) {
     try {
       const batch = dbInstance.batch();
       const checkinRef = dbInstance.collection("checkins").doc(checkinDocId);
       const partRef = dbInstance.collection("challenge_participants").doc(partDocId);
-      const profRef = dbInstance.collection("nimstreak_profiles").doc(norm);
+      const profRef = dbInstance.collection("nimstreak_profiles").doc(normProfile);
 
       batch.set(checkinRef, fullCheckin);
       batch.set(
@@ -753,22 +786,22 @@ export async function recordCheckin(checkinData, streakUpdate) {
 
       await batch.commit();
 
-      // Check and award badges
+      // Check and award badges to stable profile
       const earnedBadges = [];
       if (streakUpdate.current_streak >= 7) {
-        await awardBadge(norm, "streak_7", checkinData.challenge_id);
+        await awardBadge(normProfile, "streak_7", checkinData.challenge_id);
         earnedBadges.push("streak_7");
       }
       if (streakUpdate.current_streak >= 14) {
-        await awardBadge(norm, "streak_14", checkinData.challenge_id);
+        await awardBadge(normProfile, "streak_14", checkinData.challenge_id);
         earnedBadges.push("streak_14");
       }
       if (streakUpdate.current_streak >= 30) {
-        await awardBadge(norm, "streak_30", checkinData.challenge_id);
+        await awardBadge(normProfile, "streak_30", checkinData.challenge_id);
         earnedBadges.push("streak_30");
       }
       if (streakUpdate.current_streak >= 100) {
-        await awardBadge(norm, "streak_100", checkinData.challenge_id);
+        await awardBadge(normProfile, "streak_100", checkinData.challenge_id);
         earnedBadges.push("streak_100");
       }
 
@@ -788,27 +821,27 @@ export async function recordCheckin(checkinData, streakUpdate) {
     total_checkins: streakUpdate.total_checkins,
   });
 
-  const prof = await getProfile(norm);
-  await updateProfile(norm, {
+  const prof = await getProfile(normProfile);
+  await updateProfile(normProfile, {
     current_active_streak: Math.max(prof.current_active_streak || 0, streakUpdate.current_streak),
     longest_streak_ever: Math.max(prof.longest_streak_ever || 0, streakUpdate.longest_streak),
   });
 
   const earnedBadges = [];
   if (streakUpdate.current_streak >= 7) {
-    await awardBadge(norm, "streak_7", checkinData.challenge_id);
+    await awardBadge(normProfile, "streak_7", checkinData.challenge_id);
     earnedBadges.push("streak_7");
   }
   if (streakUpdate.current_streak >= 14) {
-    await awardBadge(norm, "streak_14", checkinData.challenge_id);
+    await awardBadge(normProfile, "streak_14", checkinData.challenge_id);
     earnedBadges.push("streak_14");
   }
   if (streakUpdate.current_streak >= 30) {
-    await awardBadge(norm, "streak_30", checkinData.challenge_id);
+    await awardBadge(normProfile, "streak_30", checkinData.challenge_id);
     earnedBadges.push("streak_30");
   }
   if (streakUpdate.current_streak >= 100) {
-    await awardBadge(norm, "streak_100", checkinData.challenge_id);
+    await awardBadge(normProfile, "streak_100", checkinData.challenge_id);
     earnedBadges.push("streak_100");
   }
 
@@ -939,12 +972,32 @@ export async function getUserChallenges(walletAddress) {
 
   if (isFirestoreConnected && dbInstance) {
     try {
-      const partsSnap = await dbInstance
-        .collection("challenge_participants")
-        .where("wallet_address", "==", norm)
-        .get();
+      const [walletSnap, profileSnap] = await Promise.all([
+        dbInstance
+          .collection("challenge_participants")
+          .where("wallet_address", "==", norm)
+          .get(),
+        dbInstance
+          .collection("challenge_participants")
+          .where("profile_wallet", "==", norm)
+          .get(),
+      ]);
 
-      const userParts = partsSnap.docs.map((d) => d.data());
+      const partsMap = new Map();
+      walletSnap.docs.forEach((d) => {
+        const data = d.data();
+        if (data && data.challenge_id) {
+          partsMap.set(data.challenge_id, data);
+        }
+      });
+      profileSnap.docs.forEach((d) => {
+        const data = d.data();
+        if (data && data.challenge_id && !partsMap.has(data.challenge_id)) {
+          partsMap.set(data.challenge_id, data);
+        }
+      });
+
+      const userParts = Array.from(partsMap.values());
 
       const challengesWithPart = await Promise.all(
         userParts.map(async (p) => {
@@ -977,24 +1030,31 @@ export async function getUserChallenges(walletAddress) {
     }
   }
 
-  const userParts = [];
+  const partsMap = new Map();
   for (const p of memoryStore.participants.values()) {
-    if (p.wallet_address === norm) {
-      const chal = memoryStore.challenges.get(p.challenge_id);
-      if (chal) {
-        userParts.push({
-          ...p,
-          title: chal.title,
-          description: chal.description,
-          category: chal.category,
-          challenge_type: chal.type,
-          duration_days: chal.duration_days,
-          checkin_type: chal.checkin_type,
-          starts_at: chal.starts_at,
-          ends_at: chal.ends_at,
-          challenge_status: chal.status,
-        });
+    if (p.wallet_address === norm || p.profile_wallet === norm) {
+      if (!partsMap.has(p.challenge_id)) {
+        partsMap.set(p.challenge_id, p);
       }
+    }
+  }
+
+  const userParts = [];
+  for (const p of partsMap.values()) {
+    const chal = memoryStore.challenges.get(p.challenge_id);
+    if (chal) {
+      userParts.push({
+        ...p,
+        title: chal.title,
+        description: chal.description,
+        category: chal.category,
+        challenge_type: chal.type,
+        duration_days: chal.duration_days,
+        checkin_type: chal.checkin_type,
+        starts_at: chal.starts_at,
+        ends_at: chal.ends_at,
+        challenge_status: chal.status,
+      });
     }
   }
 
@@ -1040,7 +1100,9 @@ export async function getParticipantCalendar(challengeId, walletAddress) {
   if (!chal) return null;
   const checkins = await getChallengeCheckins(challengeId);
   const norm = normalizeAddress(walletAddress);
-  const userCheckins = checkins.filter((c) => normalizeAddress(c.wallet_address) === norm);
+  const userCheckins = checkins.filter(
+    (c) => normalizeAddress(c.wallet_address) === norm || normalizeAddress(c.profile_wallet) === norm
+  );
   const checkinDates = new Set(userCheckins.map((c) => c.checkin_date));
   const startDate = new Date(chal.starts_at);
   const todayStr = new Date().toISOString().split("T")[0];

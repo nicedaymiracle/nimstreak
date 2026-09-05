@@ -113,34 +113,10 @@ function clearStoredWalletAddress() {
 }
 
 /**
- * Non-blocking check for existing NimStreak challenges owned by a wallet address.
- * Uses bounded timeout to guarantee connectWallet() never hangs or throws.
- */
-async function checkAccountChallenges(cleanAddress, timeoutMs = 2000) {
-  if (!cleanAddress || !isNimiqAddress(cleanAddress)) return 0;
-  try {
-    const baseUrl = API_BASE_URL || "/api";
-    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
-    const res = await fetch(`${baseUrl}/my-challenges/${cleanAddress}`, {
-      signal: controller?.signal,
-    });
-    if (timer) clearTimeout(timer);
-    if (res.ok) {
-      const data = await res.json();
-      return Array.isArray(data?.all) ? data.all.length : 0;
-    }
-  } catch (err) {
-    console.debug(`[useNimiqWallet] Challenge count check notice for ${cleanAddress}:`, err?.message || err);
-  }
-  return 0;
-}
-
-/**
- * Resolves the best active account from a list of connected Nimiq accounts:
- * - If a stored/preferred account exists and owns challenges, preserves it.
- * - If a stored/preferred account has 0 challenges, but another connected account owns challenges, selects the account with challenges (recovering from polluted preference).
- * - If no account has challenges, falls back safely to accounts[0] WITHOUT polluting PREFERRED_WALLET_KEY.
+ * Resolves the stable profile identity from a list of connected Nimiq accounts:
+ * - If a stored/preferred account exists in the connected accounts, preserves it unconditionally.
+ * - Otherwise defaults safely to accounts[0].
+ * - Never switches profile identity based on transient account selection.
  */
 async function resolveBestAccount(accounts) {
   if (!Array.isArray(accounts) || accounts.length === 0) {
@@ -162,39 +138,15 @@ async function resolveBestAccount(accounts) {
   const candidateStored = getStoredWalletAddress() || getPreferredWalletAddress();
   const cleanStored = candidateStored ? candidateStored.replace(/\s+/g, "").toUpperCase() : "";
 
-  // Query challenge counts for all candidate accounts in parallel with bounded timeout
-  const challengeResults = await Promise.allSettled(
-    cleanAccounts.map((item) => checkAccountChallenges(item.clean))
-  );
-
-  cleanAccounts.forEach((item, idx) => {
-    const res = challengeResults[idx];
-    item.challengeCount = res && res.status === "fulfilled" && typeof res.value === "number" ? res.value : 0;
-  });
-
   const candidateMatch = cleanStored && isNimiqAddress(cleanStored)
     ? cleanAccounts.find((item) => item.clean === cleanStored)
     : null;
 
-  // 1. If candidate exists in accounts and has challenges, preserve it!
-  if (candidateMatch && candidateMatch.challengeCount > 0) {
-    return { selectedAddress: candidateMatch.raw, shouldPersistPreferred: true };
-  }
-
-  // 2. If candidate has no challenges (or does not exist), check if another connected account owns challenges!
-  const accountWithChallenges = cleanAccounts.find((item) => item.challengeCount > 0);
-  if (accountWithChallenges) {
-    return { selectedAddress: accountWithChallenges.raw, shouldPersistPreferred: true };
-  }
-
-  // 3. If candidate exists (even with 0 challenges) and no other account has challenges, preserve candidate
   if (candidateMatch) {
     return { selectedAddress: candidateMatch.raw, shouldPersistPreferred: true };
   }
 
-  // 4. Default fallback: no candidate and no account has challenges -> accounts[0]
-  // Do NOT blindly save accounts[0] as preferred when used merely as initial fallback
-  return { selectedAddress: cleanAccounts[0].raw, shouldPersistPreferred: false };
+  return { selectedAddress: cleanAccounts[0].raw, shouldPersistPreferred: true };
 }
 
 let hubApiInstance = null;
@@ -438,13 +390,14 @@ export function useNimiqWallet() {
 
               actualSender = formattedSender;
 
-              // Reconcile hook state and localStorage with actual paying account
-              persistWalletAddress(actualSender);
-              setWalletAddress(actualSender);
-              setWalletStatus(`Connected via Nimiq Pay as ${shortenNimiqAddress(actualSender)}`);
-
-              // Refresh wallet balance using actual sender
-              await fetchBalance(actualSender);
+              // STABLE USER PROFILE IDENTITY:
+              // The user's NimStreak identity remains the stable profile (walletAddress).
+              // Do NOT mutate walletAddress or localStorage to actualSender.
+              // Refresh wallet balance for the stable wallet and actual sender
+              await fetchBalance(walletAddress);
+              if (actualSender !== walletAddress) {
+                await fetchBalance(actualSender);
+              }
             }
           }
 

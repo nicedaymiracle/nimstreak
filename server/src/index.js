@@ -148,6 +148,7 @@ app.put("/api/profile/:walletAddress", async (req, res) => {
 app.post("/api/challenges", async (req, res) => {
   const {
     walletAddress,
+    fundingAddress,
     title,
     description = "",
     category = "fitness",
@@ -195,10 +196,11 @@ app.post("/api/challenges", async (req, res) => {
   }
 
   // 2. Real on-chain verification of stake transaction
+  let onChainTx;
   try {
-    await verifyStakeTransaction({
+    onChainTx = await verifyStakeTransaction({
       txHash: cleanTxHash,
-      senderAddress: normalizedCreator,
+      senderAddress: fundingAddress ? normalizeAddress(fundingAddress) : null,
       expectedStakeNim: numStake,
       expectedStakeLuna: numStakeLuna,
       treasuryAddress: NIMIQ_TREASURY_ADDRESS,
@@ -208,6 +210,8 @@ app.post("/api/challenges", async (req, res) => {
       error: `Stake transaction verification failed: ${verifyErr.message}`,
     });
   }
+
+  const verifiedFundingAddress = onChainTx.from;
 
   // Calculate dates
   const startDate = new Date();
@@ -236,6 +240,8 @@ app.post("/api/challenges", async (req, res) => {
       },
       {
         stake_tx_hash: cleanTxHash,
+        wallet_address: verifiedFundingAddress,
+        profile_wallet: normalizedCreator,
         stake_amount: numStake,
         stake_luna: numStakeLuna.toString(),
         status: "active",
@@ -304,7 +310,7 @@ app.get("/api/challenges/:id", async (req, res) => {
 // Join a challenge (requires real on-chain stake transaction)
 app.post("/api/challenges/:id/join", async (req, res) => {
   const { id } = req.params;
-  const { walletAddress, stakeAmount, stakeTxHash } = req.body;
+  const { walletAddress, fundingAddress, stakeAmount, stakeTxHash } = req.body;
 
   if (!walletAddress) {
     return res.status(400).json({ error: "walletAddress is required" });
@@ -345,16 +351,19 @@ app.post("/api/challenges/:id/join", async (req, res) => {
     const finalStake = parseFloat(stakeAmount) || parseFloat(challenge.stake_nim);
     const finalStakeLuna = nimToLuna(finalStake);
 
-    await verifyStakeTransaction({
+    const onChainTx = await verifyStakeTransaction({
       txHash: cleanTxHash,
-      senderAddress: normalizedWallet,
+      senderAddress: fundingAddress ? normalizeAddress(fundingAddress) : null,
       expectedStakeNim: finalStake,
       expectedStakeLuna: finalStakeLuna,
       treasuryAddress: NIMIQ_TREASURY_ADDRESS,
     });
 
+    const verifiedFundingAddress = onChainTx.from;
+
     const newPart = await db.addParticipant(id, {
-      wallet_address: normalizedWallet,
+      wallet_address: verifiedFundingAddress,
+      profile_wallet: normalizedWallet,
       stake_tx_hash: cleanTxHash,
       stake_amount: finalStake,
       stake_luna: finalStakeLuna.toString(),
@@ -375,7 +384,7 @@ app.post("/api/challenges/:id/join", async (req, res) => {
 
 // Join via invite code (for private/group challenges)
 app.post("/api/challenges/join-by-code", async (req, res) => {
-  const { walletAddress, inviteCode, stakeTxHash, stakeAmount } = req.body;
+  const { walletAddress, fundingAddress, inviteCode, stakeTxHash, stakeAmount } = req.body;
 
   if (!walletAddress || !inviteCode) {
     return res.status(400).json({ error: "walletAddress and inviteCode are required" });
@@ -412,16 +421,19 @@ app.post("/api/challenges/join-by-code", async (req, res) => {
     const finalStake = parseFloat(stakeAmount) || parseFloat(challenge.stake_nim);
     const finalStakeLuna = nimToLuna(finalStake);
 
-    await verifyStakeTransaction({
+    const onChainTx = await verifyStakeTransaction({
       txHash: cleanTxHash,
-      senderAddress: normalizedWallet,
+      senderAddress: fundingAddress ? normalizeAddress(fundingAddress) : null,
       expectedStakeNim: finalStake,
       expectedStakeLuna: finalStakeLuna,
       treasuryAddress: NIMIQ_TREASURY_ADDRESS,
     });
 
+    const verifiedFundingAddress = onChainTx.from;
+
     const newPart = await db.addParticipant(challenge.id, {
-      wallet_address: normalizedWallet,
+      wallet_address: verifiedFundingAddress,
+      profile_wallet: normalizedWallet,
       stake_tx_hash: cleanTxHash,
       stake_amount: finalStake,
       stake_luna: finalStakeLuna.toString(),
@@ -476,7 +488,10 @@ app.post("/api/challenges/:id/checkin", async (req, res) => {
       return res.status(400).json({ error: "Challenge is already completed!" });
     }
 
-    const alreadyCheckedIn = await db.getCheckin(id, normalizedWallet, todayStr);
+    const participantAddress = participant.wallet_address;
+    const profileWallet = participant.profile_wallet || normalizedWallet;
+
+    const alreadyCheckedIn = await db.getCheckin(id, participantAddress, todayStr);
     if (alreadyCheckedIn) {
       return res.status(400).json({ error: "You have already checked in for today! 🔥" });
     }
@@ -494,7 +509,8 @@ app.post("/api/challenges/:id/checkin", async (req, res) => {
     const { checkin, earnedBadges } = await db.recordCheckin(
       {
         challenge_id: id,
-        wallet_address: normalizedWallet,
+        wallet_address: participantAddress,
+        profile_wallet: profileWallet,
         day_number: dayNumber,
         checkin_date: todayStr,
         proof_text: proofText,
@@ -557,7 +573,10 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       return res.status(400).json({ error: "Your stake in this challenge was forfeited due to missed check-ins." });
     }
 
-    const existingPayout = await db.getPayout(id, normalizedWallet, "stake_return_plus_bonus");
+    const fundingAddress = participant.wallet_address;
+    const profileWallet = participant.profile_wallet || normalizedWallet;
+
+    const existingPayout = await db.getPayout(id, fundingAddress, "stake_return_plus_bonus");
     if (existingPayout) {
       if (existingPayout.status === "sent") {
         // Verify whether the payout transaction is truly confirmed on-chain
@@ -571,7 +590,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
         // Transaction was not found on-chain (e.g. dropped mempool, invalid network ID).
         // Recover record to failed status so user is not permanently blocked from claiming their rightful reward.
         console.warn(
-          `[challenges:claim] Stale unconfirmed payout detected for ${normalizedWallet} (tx ${existingPayout.tx_hash} not found on-chain). Recovering record to failed state.`
+          `[challenges:claim] Stale unconfirmed payout detected for ${fundingAddress} (tx ${existingPayout.tx_hash} not found on-chain). Recovering record to failed state.`
         );
         await db.recordPayout({
           ...existingPayout,
@@ -580,9 +599,9 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
         });
 
         // Revert profile completed count if prematurely incremented
-        const prof = await db.getProfile(normalizedWallet);
+        const prof = await db.getProfile(profileWallet);
         if (prof && prof.completed_challenges > 0) {
-          await db.updateProfile(normalizedWallet, {
+          await db.updateProfile(profileWallet, {
             completed_challenges: Math.max(0, (prof.completed_challenges || 1) - 1),
             total_nim_earned: Math.max(
               0,
@@ -602,7 +621,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
 
     const allParticipants = await db.getChallengeParticipants(id);
     const calculation = calculatePayouts(allParticipants);
-    const myPayout = calculation.payouts.find((p) => p.wallet_address === normalizedWallet);
+    const myPayout = calculation.payouts.find((p) => p.wallet_address === fundingAddress);
 
     if (!myPayout || BigInt(myPayout.total_luna) <= 0n) {
       return res.status(400).json({ error: "No eligible payout found for this address." });
@@ -611,7 +630,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
     // Reserve pending payout record to prevent double claiming
     await db.recordPayout({
       challenge_id: id,
-      wallet_address: normalizedWallet,
+      wallet_address: fundingAddress,
       amount_nim: myPayout.total_nim,
       amount_luna: myPayout.total_luna,
       payout_type: myPayout.payout_type,
@@ -619,21 +638,21 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       status: "pending",
     });
 
-    // Sign, broadcast, and verify on-chain confirmation from treasury
+    // Sign, broadcast, and verify on-chain confirmation from treasury directly to funding address
     let payoutTx;
     try {
       payoutTx = await sendStreakPayout({
-        to: normalizedWallet,
+        to: fundingAddress,
         amountNim: myPayout.total_nim,
         amountLuna: myPayout.total_luna,
         payoutType: myPayout.payout_type,
       });
     } catch (payoutErr) {
-      console.error(`[challenges:claim] Payout transaction failed for ${normalizedWallet}:`, payoutErr.message);
+      console.error(`[challenges:claim] Payout transaction failed for ${fundingAddress}:`, payoutErr.message);
       // Mark as failed in DB so it doesn't leave the record pending or sent
       await db.recordPayout({
         challenge_id: id,
-        wallet_address: normalizedWallet,
+        wallet_address: fundingAddress,
         amount_nim: myPayout.total_nim,
         amount_luna: myPayout.total_luna,
         payout_type: myPayout.payout_type,
@@ -649,7 +668,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
     // Update payout record to sent ONLY after verified on-chain confirmation
     await db.recordPayout({
       challenge_id: id,
-      wallet_address: normalizedWallet,
+      wallet_address: fundingAddress,
       amount_nim: myPayout.total_nim,
       amount_luna: myPayout.total_luna,
       payout_type: myPayout.payout_type,
@@ -658,8 +677,18 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       status: "sent",
     });
 
+    // Credit profile stats to stable profile identity
+    const prof = await db.getProfile(profileWallet);
+    if (prof) {
+      await db.updateProfile(profileWallet, {
+        completed_challenges: (prof.completed_challenges || 0) + 1,
+        total_nim_earned: (prof.total_nim_earned || 0) + (Number(myPayout.bonus_nim || myPayout.total_nim) || 0),
+      });
+    }
+
     broadcastChallengeUpdate(id, "payout:claimed", {
       walletAddress: normalizedWallet,
+      fundingAddress,
       amountNim: myPayout.total_nim,
       amountLuna: myPayout.total_luna,
       txHash: payoutTx.txHash,

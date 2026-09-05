@@ -176,7 +176,8 @@ export default function App() {
         throw new Error("No transaction hash returned from Nimiq wallet.");
       }
 
-      const verifiedSender = paymentResult?.sender || params.walletAddress || walletAddress;
+      const stableProfileAddress = params.walletAddress || walletAddress;
+      const actualFundingAddress = paymentResult?.sender;
 
       showToast("⏳ Verifying on-chain stake transaction...");
 
@@ -185,7 +186,8 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...params,
-          walletAddress: verifiedSender,
+          walletAddress: stableProfileAddress,
+          fundingAddress: actualFundingAddress,
           stakeTxHash: txHash,
         }),
       });
@@ -233,15 +235,14 @@ export default function App() {
         throw new Error("No transaction hash returned from Nimiq wallet.");
       }
 
-      const verifiedSender = paymentResult?.sender || walletAddress;
-
       showToast("⏳ Verifying on-chain stake transaction...");
 
       const res = await fetch(`${API_BASE_URL}/challenges/${challengeId}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          walletAddress: verifiedSender,
+          walletAddress,
+          fundingAddress: paymentResult?.sender,
           stakeAmount,
           stakeTxHash: txHash,
         }),
@@ -291,15 +292,14 @@ export default function App() {
         throw new Error("No transaction hash returned from Nimiq wallet.");
       }
 
-      const verifiedSender = paymentResult?.sender || walletAddress;
-
       showToast("⏳ Verifying on-chain stake transaction...");
 
       const res = await fetch(`${API_BASE_URL}/challenges/join-by-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          walletAddress: verifiedSender,
+          walletAddress,
+          fundingAddress: paymentResult?.sender,
           inviteCode,
           stakeTxHash: txHash,
           stakeAmount,

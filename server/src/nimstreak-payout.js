@@ -104,7 +104,7 @@ export function calculatePayouts(participants = [], totalPoolInput = null) {
  */
 export async function verifyStakeTransaction({
   txHash,
-  senderAddress,
+  senderAddress = null,
   expectedStakeNim,
   expectedStakeLuna = null,
   treasuryAddress = TREASURY_ADDRESS,
@@ -115,7 +115,7 @@ export async function verifyStakeTransaction({
   }
 
   const expectedLuna = expectedStakeLuna !== null ? BigInt(expectedStakeLuna) : nimToLuna(expectedStakeNim);
-  const normalizedSender = normalizeAddress(senderAddress);
+  const normalizedSender = senderAddress ? normalizeAddress(senderAddress) : null;
   const normalizedTreasury = normalizeAddress(treasuryAddress);
 
   // Development bypass ONLY if explicitly enabled in environment
@@ -124,7 +124,7 @@ export async function verifyStakeTransaction({
     return {
       verified: true,
       txHash: cleanHash,
-      from: normalizedSender,
+      from: normalizedSender || "NQ0000000000000000000000000000000000",
       to: normalizedTreasury,
       valueLuna: Number(expectedLuna),
       bypassed: true,
@@ -147,7 +147,7 @@ export async function verifyStakeTransaction({
     throw new Error(`Transaction ${cleanHash} failed execution on the blockchain.`);
   }
 
-  if (actualFrom !== normalizedSender) {
+  if (normalizedSender && actualFrom !== normalizedSender) {
     throw new Error(
       `Transaction sender mismatch: Expected ${normalizedSender}, but transaction was sent from ${actualFrom}.`
     );
