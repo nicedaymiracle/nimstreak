@@ -74,6 +74,7 @@ async function fetchTransactionData(txHash, maxAttempts = 6, delayMs = 600) {
 }
 
 const STORAGE_KEY = NIMSTREAK_STORAGE_KEY || "nimstreak_wallet_address";
+const PREFERRED_WALLET_KEY = "nimstreak_preferred_wallet";
 
 function getStoredWalletAddress() {
   try {
@@ -83,10 +84,19 @@ function getStoredWalletAddress() {
   }
 }
 
+function getPreferredWalletAddress() {
+  try {
+    return localStorage.getItem(PREFERRED_WALLET_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 function persistWalletAddress(address) {
   try {
     if (address) {
       localStorage.setItem(STORAGE_KEY, address);
+      localStorage.setItem(PREFERRED_WALLET_KEY, address);
     } else {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -185,48 +195,88 @@ export function useNimiqWallet() {
       const sdk = await getSdkProvider();
       if (sdk && typeof sdk.listAccounts === "function") {
         const accounts = await sdk.listAccounts();
-        const rawAddr = Array.isArray(accounts) && accounts.length > 0
-          ? (typeof accounts[0] === "string" ? accounts[0] : accounts[0]?.address)
-          : null;
+        if (Array.isArray(accounts) && accounts.length > 0) {
+          // Read previously stored / preferred account
+          const candidateStored = getStoredWalletAddress() || getPreferredWalletAddress();
+          const cleanStored = candidateStored ? candidateStored.replace(/\s+/g, "").toUpperCase() : "";
 
-        if (rawAddr && isNimiqAddress(rawAddr)) {
-          const formatted = formatNimiqAddress(rawAddr);
-          persistWalletAddress(formatted);
-          setWalletAddress(formatted);
-          setIsNimiqPay(true);
-          setWalletStatus(`Connected via Nimiq Pay as ${shortenNimiqAddress(formatted)}`);
-          await fetchBalance(formatted);
-          setIsConnecting(false);
-          return formatted;
+          let selectedRawAddr = null;
+
+          // If a stored wallet exists and is a valid Nimiq address, check if it matches an account in Nimiq Pay
+          if (cleanStored && isNimiqAddress(cleanStored)) {
+            const matchingAcc = accounts.find((acc) => {
+              const accStr = typeof acc === "string" ? acc : acc?.address || "";
+              return accStr.replace(/\s+/g, "").toUpperCase() === cleanStored;
+            });
+            if (matchingAcc) {
+              selectedRawAddr = typeof matchingAcc === "string" ? matchingAcc : matchingAcc?.address;
+            }
+          }
+
+          // Fall back to accounts[0] if no stored address or stored address no longer in accounts
+          if (!selectedRawAddr) {
+            selectedRawAddr = typeof accounts[0] === "string" ? accounts[0] : accounts[0]?.address;
+          }
+
+          if (selectedRawAddr && isNimiqAddress(selectedRawAddr)) {
+            const formatted = formatNimiqAddress(selectedRawAddr);
+            persistWalletAddress(formatted);
+            setWalletAddress(formatted);
+            setIsNimiqPay(true);
+            setWalletStatus(`Connected via Nimiq Pay as ${shortenNimiqAddress(formatted)}`);
+            await fetchBalance(formatted);
+            setIsConnecting(false);
+            return formatted;
+          }
         }
       }
 
       // 2. Injected window.nimiq Provider
       const injectedNimiq = getNimiqProvider();
       if (injectedNimiq) {
-        let addr = "";
+        let rawAccounts = [];
         if (typeof injectedNimiq.listAccounts === "function") {
-          const accounts = await injectedNimiq.listAccounts();
-          addr = Array.isArray(accounts) && accounts.length > 0
-            ? (accounts[0]?.address || accounts[0])
-            : "";
+          const accs = await injectedNimiq.listAccounts();
+          if (Array.isArray(accs)) rawAccounts = accs;
         } else if (typeof injectedNimiq.request === "function") {
-          const accounts = await injectedNimiq.request({ method: "nimiq_requestAccounts" }).catch(() => null);
-          addr = Array.isArray(accounts) ? accounts[0] : accounts || "";
+          const accs = await injectedNimiq.request({ method: "nimiq_requestAccounts" }).catch(() => null);
+          if (Array.isArray(accs)) rawAccounts = accs;
+          else if (accs) rawAccounts = [accs];
         } else if (typeof injectedNimiq.connect === "function") {
           const res = await injectedNimiq.connect();
-          addr = res?.address || res?.account || res || "";
+          const resAddr = res?.address || res?.account || res || "";
+          if (resAddr) rawAccounts = [resAddr];
         }
 
-        if (addr && isNimiqAddress(addr)) {
-          const formatted = formatNimiqAddress(addr);
-          persistWalletAddress(formatted);
-          setWalletAddress(formatted);
-          // Do NOT set isNimiqPay here — window.nimiq may exist outside Nimiq Pay
-          setWalletStatus(`Connected as ${shortenNimiqAddress(formatted)}`);
-          await fetchBalance(formatted);
-          setIsConnecting(false);
-          return formatted;
+        if (rawAccounts.length > 0) {
+          const candidateStored = getStoredWalletAddress() || getPreferredWalletAddress();
+          const cleanStored = candidateStored ? candidateStored.replace(/\s+/g, "").toUpperCase() : "";
+
+          let selectedAddr = null;
+          if (cleanStored && isNimiqAddress(cleanStored)) {
+            const matching = rawAccounts.find((acc) => {
+              const str = typeof acc === "string" ? acc : acc?.address || "";
+              return str.replace(/\s+/g, "").toUpperCase() === cleanStored;
+            });
+            if (matching) {
+              selectedAddr = typeof matching === "string" ? matching : matching?.address;
+            }
+          }
+
+          if (!selectedAddr) {
+            selectedAddr = typeof rawAccounts[0] === "string" ? rawAccounts[0] : rawAccounts[0]?.address;
+          }
+
+          if (selectedAddr && isNimiqAddress(selectedAddr)) {
+            const formatted = formatNimiqAddress(selectedAddr);
+            persistWalletAddress(formatted);
+            setWalletAddress(formatted);
+            // Do NOT set isNimiqPay here — window.nimiq may exist outside Nimiq Pay
+            setWalletStatus(`Connected as ${shortenNimiqAddress(formatted)}`);
+            await fetchBalance(formatted);
+            setIsConnecting(false);
+            return formatted;
+          }
         }
       }
 
