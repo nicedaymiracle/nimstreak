@@ -11,6 +11,7 @@ import {
   calculatePayouts,
   isNimiqAddress,
   verifyStakeTransaction,
+  getOnChainTransaction,
   nimToLuna,
   lunaToNim,
   LUNA_PER_NIM,
@@ -557,10 +558,46 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
     }
 
     const existingPayout = await db.getPayout(id, normalizedWallet, "stake_return_plus_bonus");
-    if (existingPayout && existingPayout.status === "sent") {
-      return res.status(400).json({
-        error: `Payout of ${existingPayout.amount_nim} NIM has already been claimed on ${new Date(existingPayout.created_at).toLocaleDateString()} (Tx: ${existingPayout.tx_hash}).`,
-      });
+    if (existingPayout) {
+      if (existingPayout.status === "sent") {
+        // Verify whether the payout transaction is truly confirmed on-chain
+        const onChainTx = await getOnChainTransaction(existingPayout.tx_hash);
+        if (onChainTx) {
+          return res.status(400).json({
+            error: `Payout of ${existingPayout.amount_nim} NIM has already been claimed on ${new Date(existingPayout.created_at).toLocaleDateString()} (Tx: ${existingPayout.tx_hash}).`,
+          });
+        }
+
+        // Transaction was not found on-chain (e.g. dropped mempool, invalid network ID).
+        // Recover record to failed status so user is not permanently blocked from claiming their rightful reward.
+        console.warn(
+          `[challenges:claim] Stale unconfirmed payout detected for ${normalizedWallet} (tx ${existingPayout.tx_hash} not found on-chain). Recovering record to failed state.`
+        );
+        await db.recordPayout({
+          ...existingPayout,
+          status: "failed",
+          error: `Previous transaction ${existingPayout.tx_hash} was not confirmed on-chain. Recovered for re-claim.`,
+        });
+
+        // Revert profile completed count if prematurely incremented
+        const prof = await db.getProfile(normalizedWallet);
+        if (prof && prof.completed_challenges > 0) {
+          await db.updateProfile(normalizedWallet, {
+            completed_challenges: Math.max(0, (prof.completed_challenges || 1) - 1),
+            total_nim_earned: Math.max(
+              0,
+              (prof.total_nim_earned || 0) - (Number(existingPayout.bonus_nim || existingPayout.amount_nim) || 0)
+            ),
+          });
+        }
+      } else if (existingPayout.status === "pending") {
+        const pendingAgeMs = Date.now() - new Date(existingPayout.created_at || Date.now()).getTime();
+        if (pendingAgeMs < 30000) {
+          return res.status(400).json({
+            error: "A payout claim for this challenge is currently being processed. Please wait a moment.",
+          });
+        }
+      }
     }
 
     const allParticipants = await db.getChallengeParticipants(id);
@@ -582,15 +619,34 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       status: "pending",
     });
 
-    // Sign and broadcast real transaction from treasury
-    const payoutTx = await sendStreakPayout({
-      to: normalizedWallet,
-      amountNim: myPayout.total_nim,
-      amountLuna: myPayout.total_luna,
-      payoutType: myPayout.payout_type,
-    });
+    // Sign, broadcast, and verify on-chain confirmation from treasury
+    let payoutTx;
+    try {
+      payoutTx = await sendStreakPayout({
+        to: normalizedWallet,
+        amountNim: myPayout.total_nim,
+        amountLuna: myPayout.total_luna,
+        payoutType: myPayout.payout_type,
+      });
+    } catch (payoutErr) {
+      console.error(`[challenges:claim] Payout transaction failed for ${normalizedWallet}:`, payoutErr.message);
+      // Mark as failed in DB so it doesn't leave the record pending or sent
+      await db.recordPayout({
+        challenge_id: id,
+        wallet_address: normalizedWallet,
+        amount_nim: myPayout.total_nim,
+        amount_luna: myPayout.total_luna,
+        payout_type: myPayout.payout_type,
+        bonus_nim: myPayout.bonus_nim,
+        status: "failed",
+        error: payoutErr.message,
+      });
+      return res.status(400).json({
+        error: `Payout execution failed: ${payoutErr.message}`,
+      });
+    }
 
-    // Update payout record to sent
+    // Update payout record to sent ONLY after verified on-chain confirmation
     await db.recordPayout({
       challenge_id: id,
       wallet_address: normalizedWallet,

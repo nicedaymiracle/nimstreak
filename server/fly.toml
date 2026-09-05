@@ -11,7 +11,7 @@ primary_region = 'lhr'
 [env]
   PORT = "8080"
   NIMIQ_NETWORK = "mainnet"
-  NIMIQ_NETWORK_ID = "1"
+  NIMIQ_NETWORK_ID = "24"
   NIMIQ_RPC_URL = "https://rpc.nimiqwatch.com"
   NIMIQ_TREASURY_ADDRESS = "NQ68 LS47 5LF6 C7CU MVB6 KL55 YSFG PEXJ ADJ0"
   MIN_STAKE_NIM = "0.5"

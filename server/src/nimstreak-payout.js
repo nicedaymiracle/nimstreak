@@ -7,13 +7,13 @@ const NIMIQ_NETWORK = (process.env.NIMIQ_NETWORK || "mainnet").toLowerCase();
 const defaultRpcUrl = NIMIQ_NETWORK === "testnet"
   ? "https://rpc.testnet.nimiqwatch.com"
   : "https://rpc.nimiqwatch.com";
-const defaultNetworkId = NIMIQ_NETWORK === "testnet" ? 5 : 1;
+const defaultNetworkId = NIMIQ_NETWORK === "testnet" ? 5 : 24;
 
 const NIMIQ_RPC_URL = process.env.NIMIQ_RPC_URL || defaultRpcUrl;
 const TREASURY_ADDRESS = (process.env.NIMIQ_TREASURY_ADDRESS || "NQ68 LS47 5LF6 C7CU MVB6 KL55 YSFG PEXJ ADJ0").trim();
 const TREASURY_PRIVATE_KEY = (process.env.NIMIQ_TREASURY_PRIVATE_KEY || "").trim();
 const TREASURY_FEE_PERCENT = parseInt(process.env.TREASURY_FEE_PERCENT || "10", 10);
-const NIMIQ_NETWORK_ID = parseInt(process.env.NIMIQ_NETWORK_ID || String(defaultNetworkId), 10); // 1 = mainnet, 5 = testnet
+export const NIMIQ_NETWORK_ID = parseInt(process.env.NIMIQ_NETWORK_ID || String(defaultNetworkId), 10); // 24 = mainnet, 5 = testnet
 
 export const LUNA_PER_NIM = 100000n;
 
@@ -131,42 +131,8 @@ export async function verifyStakeTransaction({
     };
   }
 
-  // Fetch transaction details from Nimiq JSON-RPC
-  let txData = null;
-  try {
-    const rpcRes = await fetch(NIMIQ_RPC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: "getTransactionByHash",
-        params: [cleanHash],
-        id: Date.now(),
-      }),
-    });
-
-    const json = await rpcRes.json();
-    if (json.result && json.result.data) {
-      txData = json.result.data;
-    }
-  } catch (rpcErr) {
-    console.warn(`[verification] RPC getTransactionByHash notice (${rpcErr.message})`);
-  }
-
-  // Fallback: try api.nimiq.watch REST endpoint
-  if (!txData) {
-    try {
-      const restRes = await fetch(`https://api.nimiq.watch/transaction/${cleanHash}`);
-      if (restRes.ok) {
-        const json = await restRes.json();
-        if (json && !json.error) {
-          txData = json;
-        }
-      }
-    } catch (restErr) {
-      console.warn(`[verification] REST fallback notice (${restErr.message})`);
-    }
-  }
+  // Fetch transaction details from Nimiq blockchain
+  const txData = await getOnChainTransaction(cleanHash);
 
   if (!txData) {
     throw new Error(`Transaction ${cleanHash} not found on the Nimiq network. Please wait for confirmation.`);
@@ -210,7 +176,89 @@ export async function verifyStakeTransaction({
 }
 
 /**
- * Construct, sign with treasury keypair, and broadcast a real payout transaction.
+ * Query on-chain transaction data by hash using RPC with REST fallback.
+ * Returns the transaction data object if found and valid, or null if not found.
+ */
+export async function getOnChainTransaction(txHash) {
+  const cleanHash = String(txHash || "").trim().toLowerCase();
+  if (!/^[0-9a-fA-F]{64}$/.test(cleanHash)) {
+    return null;
+  }
+
+  let txData = null;
+
+  // 1. Try Nimiq JSON-RPC getTransactionByHash
+  try {
+    const rpcRes = await fetch(NIMIQ_RPC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "getTransactionByHash",
+        params: [cleanHash],
+        id: Date.now(),
+      }),
+    });
+
+    if (rpcRes.ok) {
+      const json = await rpcRes.json();
+      if (json && json.result) {
+        txData = json.result.data || json.result;
+      }
+    }
+  } catch (rpcErr) {
+    console.warn(`[onchain:query] RPC getTransactionByHash notice (${rpcErr.message})`);
+  }
+
+  // 2. Fallback: try api.nimiq.watch REST endpoint
+  if (!txData) {
+    try {
+      const restRes = await fetch(`https://api.nimiq.watch/transaction/${cleanHash}`);
+      if (restRes.ok) {
+        const json = await restRes.json();
+        if (json && !json.error) {
+          txData = json;
+        }
+      }
+    } catch (restErr) {
+      console.warn(`[onchain:query] REST fallback notice (${restErr.message})`);
+    }
+  }
+
+  if (txData && (txData.hash || txData.blockNumber !== undefined || txData.value !== undefined)) {
+    return txData;
+  }
+
+  return null;
+}
+
+/**
+ * Poll getOnChainTransaction until the transaction appears on-chain,
+ * or until the bounded retry window is reached.
+ */
+export async function waitForTransactionConfirmation(txHash, { maxAttempts = 6, intervalMs = 1500 } = {}) {
+  const cleanHash = String(txHash || "").trim().toLowerCase();
+  if (!/^[0-9a-fA-F]{64}$/.test(cleanHash)) {
+    return null;
+  }
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    const txData = await getOnChainTransaction(cleanHash);
+    if (txData) {
+      const executionResult = txData.executionResult !== undefined ? txData.executionResult : true;
+      if (!executionResult) {
+        throw new Error(`Transaction ${cleanHash} failed execution on the blockchain.`);
+      }
+      return txData;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Construct, sign with treasury keypair, broadcast, and verify on-chain confirmation.
  */
 export async function sendStreakPayout({ to, amountNim, amountLuna = null, payoutType = "stake_return_plus_bonus" }) {
   if (!isNimiqAddress(to)) {
@@ -259,7 +307,7 @@ export async function sendStreakPayout({ to, amountNim, amountLuna = null, payou
     console.warn(`[treasury:payout] Could not query block number (${err.message}). Using 1.`);
   }
 
-  // 3. Construct and sign transaction
+  // 3. Construct and sign transaction using configured network ID
   const recipientAddress = Nimiq.Address.fromString(to.replace(/\s+/g, ""));
   const tx = Nimiq.TransactionBuilder.newBasic(
     senderAddress,
@@ -292,11 +340,31 @@ export async function sendStreakPayout({ to, amountNim, amountLuna = null, payou
   }
 
   const broadcastResultHash = broadcastJson.result?.data || broadcastJson.result || txHash;
-  console.log(`[treasury:payout] Broadcast success! Real on-chain Tx Hash: ${broadcastResultHash}`);
+  console.log(`[treasury:payout] Broadcast accepted into mempool. Tx Hash: ${broadcastResultHash}`);
+
+  // 5. Poll for on-chain confirmation before treating as successful
+  const maxAttempts = parseInt(process.env.PAYOUT_CONFIRM_ATTEMPTS || "6", 10);
+  const intervalMs = parseInt(process.env.PAYOUT_CONFIRM_INTERVAL_MS || "1500", 10);
+  console.log(`[treasury:payout] Awaiting on-chain confirmation for ${broadcastResultHash} (${maxAttempts} attempts @ ${intervalMs}ms)...`);
+
+  const confirmedTx = await waitForTransactionConfirmation(broadcastResultHash, {
+    maxAttempts,
+    intervalMs,
+  });
+
+  if (!confirmedTx) {
+    throw new Error(
+      `Payout transaction ${broadcastResultHash} was broadcast, but failed to confirm on-chain within timeout. Treasury balance unchanged.`
+    );
+  }
+
+  console.log(`[treasury:payout] Confirmed on-chain! Block: ${confirmedTx.blockNumber || "confirmed"}`);
 
   return {
     txHash: broadcastResultHash,
     amountLuna: finalLuna.toString(),
     amountNim: lunaToNim(finalLuna),
+    confirmed: true,
+    blockNumber: confirmedTx.blockNumber || null,
   };
 }
