@@ -398,8 +398,9 @@ export async function getChallenges({ status, category, type, search } = {}) {
       if (category && category !== "all") q = q.where("category", "==", category.toLowerCase());
       if (type && type !== "all") q = q.where("type", "==", type.toLowerCase());
 
-      const snap = await q.orderBy("created_at", "desc").get();
+      const snap = await q.get();
       const allChallenges = snap.docs.map((d) => d.data());
+      allChallenges.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
       // Fetch participants to enrich with counts
       const partsSnap = await dbInstance.collection("challenge_participants").get();
@@ -442,6 +443,8 @@ export async function getChallenges({ status, category, type, search } = {}) {
     }
     return true;
   });
+
+  list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
   return list.map((c) => {
     let activeCount = 0;
