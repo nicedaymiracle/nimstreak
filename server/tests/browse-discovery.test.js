@@ -94,4 +94,12 @@ describe("Browse Discovery & getChallenges without composite index", () => {
     const seedOnly = data.length === 3 && data.every((c) => c.id.startsWith("c1-") || c.id.startsWith("c2-") || c.id.startsWith("c3-"));
     assert.strictEqual(seedOnly, false, "GET /api/challenges must not fall back to memory seed challenges");
   });
+
+  it("does not contain any dummy seed challenge IDs (c1, c2, c3)", async () => {
+    const list = await db.getChallenges();
+    const hasDummySeeds = list.some(
+      (c) => c.id === "c1-fitness-30" || c.id === "c2-coding-100" || c.id === "c3-mindfulness-14"
+    );
+    assert.strictEqual(hasDummySeeds, false, "Must not contain any dummy seed challenges");
+  });
 });

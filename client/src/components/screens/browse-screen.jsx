@@ -63,7 +63,7 @@ export function BrowseScreen({
           <form onSubmit={handleJoinCode} className="invite-code-form">
             <input
               type="text"
-              placeholder="e.g. FIT30 or ABC12"
+              placeholder="e.g. STREAK7 or ABC12"
               value={inviteCodeInput}
               onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
               maxLength={10}

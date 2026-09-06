@@ -19,85 +19,7 @@ const memoryStore = {
   usedTxHashes: new Set(),
 };
 
-// Seed sample challenges in memory for immediate development/testing
-function seedInitialData() {
-  if (memoryStore.challenges.size > 0) return;
-  const samples = [
-    {
-      id: "c1-fitness-30",
-      title: "30-Day Morning Workout Routine",
-      description: "Do 30 minutes of physical exercise every morning before 10 AM. Stay active!",
-      category: "fitness",
-      type: "public",
-      duration_days: 30,
-      stake_nim: 5.0,
-      stake_luna: 500000,
-      checkin_type: "tap",
-      created_by: "NQ07 0000 0000 0000 0000 0000 0000 0000 0000",
-      starts_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-      ends_at: new Date(Date.now() + 27 * 86400000).toISOString(),
-      status: "active",
-      max_participants: 50,
-      invite_code: "FIT30",
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: "c2-coding-100",
-      title: "100 Days of Code Sprint",
-      description: "Write code and make at least 1 Git commit every single day. No excuses.",
-      category: "coding",
-      type: "public",
-      duration_days: 100,
-      stake_nim: 10.0,
-      stake_luna: 1000000,
-      checkin_type: "text",
-      created_by: "NQ12 3456 7890 ABCD EFGH IJKL MNOP QRST UVWX",
-      starts_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-      ends_at: new Date(Date.now() + 95 * 86400000).toISOString(),
-      status: "active",
-      max_participants: 100,
-      invite_code: "CODE100",
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: "c3-mindfulness-14",
-      title: "14 Days of Daily Meditation",
-      description: "10 minutes of guided meditation or mindful breathing each day.",
-      category: "mindfulness",
-      type: "public",
-      duration_days: 14,
-      stake_nim: 2.0,
-      stake_luna: 200000,
-      checkin_type: "tap",
-      created_by: "NQ99 9999 9999 9999 9999 9999 9999 9999 9999",
-      starts_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-      ends_at: new Date(Date.now() + 13 * 86400000).toISOString(),
-      status: "active",
-      max_participants: 30,
-      invite_code: "ZEN14",
-      created_at: new Date().toISOString(),
-    },
-  ];
 
-  for (const s of samples) {
-    memoryStore.challenges.set(s.id, s);
-    const partKey = `${s.id}_${s.created_by.replace(/\\s+/g, "").toUpperCase()}`;
-    memoryStore.participants.set(partKey, {
-      id: `part_${s.id}`,
-      challenge_id: s.id,
-      wallet_address: s.created_by,
-      stake_amount: s.stake_nim,
-      stake_luna: s.stake_luna,
-      status: "active",
-      current_streak: 1,
-      longest_streak: 1,
-      total_checkins: 1,
-      joined_at: s.starts_at,
-    });
-  }
-}
-
-seedInitialData();
 
 export function normalizeAddress(addr) {
   return String(addr || "").trim().replace(/\s+/g, "").toUpperCase();
@@ -239,11 +161,11 @@ export async function getGlobalStats() {
   }
 
   return {
-    totalUsers: Math.max(memoryStore.profiles.size, 12),
-    totalNimStaked: Math.max(totalStaked, 142.5),
+    totalUsers: memoryStore.profiles.size,
+    totalNimStaked: totalStaked,
     activeChallenges: Array.from(memoryStore.challenges.values()).filter((c) => c.status === "active").length,
-    totalCheckins: Math.max(memoryStore.checkins.size, 89),
-    totalNimPaid: totalPaid || 45.0,
+    totalCheckins: memoryStore.checkins.size,
+    totalNimPaid: totalPaid,
   };
 }
 

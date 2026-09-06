@@ -121,22 +121,22 @@ export function HomeScreen({
         <div className="stats-grid">
           <div className="stat-card">
             <span className="stat-card__icon">👥</span>
-            <span className="stat-card__val">{globalStats?.totalUsers || 24}</span>
+            <span className="stat-card__val">{globalStats?.totalUsers ?? 0}</span>
             <span className="stat-card__lbl">Active Streakers</span>
           </div>
           <div className="stat-card">
             <span className="stat-card__icon">💎</span>
-            <span className="stat-card__val">{(globalStats?.totalNimStaked || 142.5).toFixed(1)}</span>
+            <span className="stat-card__val">{(globalStats?.totalNimStaked ?? 0).toFixed(1)}</span>
             <span className="stat-card__lbl">Total NIM Staked</span>
           </div>
           <div className="stat-card">
             <span className="stat-card__icon">🔥</span>
-            <span className="stat-card__val">{globalStats?.totalCheckins || 98}</span>
+            <span className="stat-card__val">{globalStats?.totalCheckins ?? 0}</span>
             <span className="stat-card__lbl">Check-ins Logged</span>
           </div>
           <div className="stat-card">
             <span className="stat-card__icon">🏆</span>
-            <span className="stat-card__val">{globalStats?.activeChallenges || 6}</span>
+            <span className="stat-card__val">{globalStats?.activeChallenges ?? 0}</span>
             <span className="stat-card__lbl">Live Challenges</span>
           </div>
         </div>
