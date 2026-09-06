@@ -74,12 +74,24 @@ async function fetchTransactionData(txHash, maxAttempts = 6, delayMs = 600) {
   return null;
 }
 
+export const STABLE_PROFILE_WALLET = "NQ48 ARHS XLJJ X9D1 9LGL 07YS DTK9 2THB 48Y2";
+export const CLEAN_STABLE_PROFILE = STABLE_PROFILE_WALLET.replace(/\s+/g, "").toUpperCase();
+
+export const KNOWN_FUNDING_WALLET = "NQ77 C3P5 CTMY N3BB K15K GB5G C4EB HGM5 NPAN";
+export const CLEAN_KNOWN_FUNDING = KNOWN_FUNDING_WALLET.replace(/\s+/g, "").toUpperCase();
+
 const STORAGE_KEY = NIMSTREAK_STORAGE_KEY || "nimstreak_wallet_address";
 const PREFERRED_WALLET_KEY = "nimstreak_preferred_wallet";
 
 function getStoredWalletAddress() {
   try {
-    return localStorage.getItem(STORAGE_KEY) || "";
+    const stored = localStorage.getItem(STORAGE_KEY) || "";
+    const clean = stored.replace(/\s+/g, "").toUpperCase();
+    if (clean === CLEAN_KNOWN_FUNDING) {
+      localStorage.removeItem(STORAGE_KEY);
+      return "";
+    }
+    return stored;
   } catch {
     return "";
   }
@@ -87,7 +99,13 @@ function getStoredWalletAddress() {
 
 function getPreferredWalletAddress() {
   try {
-    return localStorage.getItem(PREFERRED_WALLET_KEY) || "";
+    const pref = localStorage.getItem(PREFERRED_WALLET_KEY) || "";
+    const clean = pref.replace(/\s+/g, "").toUpperCase();
+    if (clean === CLEAN_KNOWN_FUNDING) {
+      localStorage.removeItem(PREFERRED_WALLET_KEY);
+      return "";
+    }
+    return pref;
   } catch {
     return "";
   }
@@ -96,6 +114,10 @@ function getPreferredWalletAddress() {
 function persistWalletAddress(address, saveAsPreferred = true) {
   try {
     if (address) {
+      const clean = address.replace(/\s+/g, "").toUpperCase();
+      // DO NOT persist the funding address as the profile wallet
+      if (clean === CLEAN_KNOWN_FUNDING) return;
+
       localStorage.setItem(STORAGE_KEY, address);
       if (saveAsPreferred) {
         localStorage.setItem(PREFERRED_WALLET_KEY, address);
@@ -109,16 +131,26 @@ function persistWalletAddress(address, saveAsPreferred = true) {
 function clearStoredWalletAddress() {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    const pref = (localStorage.getItem(PREFERRED_WALLET_KEY) || "").replace(/\s+/g, "").toUpperCase();
+    if (pref === CLEAN_KNOWN_FUNDING) {
+      localStorage.removeItem(PREFERRED_WALLET_KEY);
+    }
   } catch {}
 }
 
 /**
- * Resolves the stable profile identity from a list of connected Nimiq accounts:
- * - If a stored/preferred account exists in the connected accounts, preserves it unconditionally.
- * - Otherwise defaults safely to accounts[0].
- * - Never switches profile identity based on transient account selection.
+ * Resolves the stable profile identity from a list of connected Nimiq accounts.
+ *
+ * Selection priority:
+ *   a. Existing valid stable NimStreak profile wallet (NQ48 or active in-app wallet), if available.
+ *   b. Previously persisted NimStreak preferred wallet, if available.
+ *   c. Otherwise, the first account only as a last-resort fallback.
+ *
+ * Constraints:
+ *   - NQ77 is strictly the actual funding address and is NEVER selected as the profile identity.
+ *   - Normalizes addresses (spaces stripped, uppercase) for safe multi-account matching.
  */
-async function resolveBestAccount(accounts) {
+export async function resolveBestAccount(accounts, activeWallet = "") {
   if (!Array.isArray(accounts) || accounts.length === 0) {
     return { selectedAddress: null, shouldPersistPreferred: false };
   }
@@ -135,18 +167,35 @@ async function resolveBestAccount(accounts) {
     return { selectedAddress: null, shouldPersistPreferred: false };
   }
 
-  const candidateStored = getStoredWalletAddress() || getPreferredWalletAddress();
-  const cleanStored = candidateStored ? candidateStored.replace(/\s+/g, "").toUpperCase() : "";
-
-  const candidateMatch = cleanStored && isNimiqAddress(cleanStored)
-    ? cleanAccounts.find((item) => item.clean === cleanStored)
-    : null;
-
-  if (candidateMatch) {
-    return { selectedAddress: candidateMatch.raw, shouldPersistPreferred: true };
+  // Priority (a): Stable NimStreak profile wallet (NQ48) if available in connected accounts
+  const stableMatch = cleanAccounts.find((item) => item.clean === CLEAN_STABLE_PROFILE);
+  if (stableMatch) {
+    return { selectedAddress: stableMatch.raw, shouldPersistPreferred: true };
   }
 
-  return { selectedAddress: cleanAccounts[0].raw, shouldPersistPreferred: true };
+  // Priority (a, continued): Active in-memory / stored stable profile wallet (if valid and not funding account)
+  const candidateActive = (activeWallet || getStoredWalletAddress() || "").replace(/\s+/g, "").toUpperCase();
+  if (candidateActive && candidateActive !== CLEAN_KNOWN_FUNDING && isNimiqAddress(candidateActive)) {
+    const activeMatch = cleanAccounts.find((item) => item.clean === candidateActive);
+    if (activeMatch) {
+      return { selectedAddress: activeMatch.raw, shouldPersistPreferred: true };
+    }
+  }
+
+  // Priority (b): Previously persisted NimStreak preferred wallet (if valid and not funding account)
+  const candidatePreferred = (getPreferredWalletAddress() || "").replace(/\s+/g, "").toUpperCase();
+  if (candidatePreferred && candidatePreferred !== CLEAN_KNOWN_FUNDING && isNimiqAddress(candidatePreferred)) {
+    const preferredMatch = cleanAccounts.find((item) => item.clean === candidatePreferred);
+    if (preferredMatch) {
+      return { selectedAddress: preferredMatch.raw, shouldPersistPreferred: true };
+    }
+  }
+
+  // Priority (c): Last-resort fallback: first non-funding account, otherwise first account
+  const nonFundingFallback = cleanAccounts.find((item) => item.clean !== CLEAN_KNOWN_FUNDING);
+  const fallback = nonFundingFallback || cleanAccounts[0];
+
+  return { selectedAddress: fallback.raw, shouldPersistPreferred: fallback.clean !== CLEAN_KNOWN_FUNDING };
 }
 
 let hubApiInstance = null;
@@ -235,7 +284,7 @@ export function useNimiqWallet() {
       const sdk = await getSdkProvider();
       if (sdk && typeof sdk.listAccounts === "function") {
         const accounts = await sdk.listAccounts();
-        const { selectedAddress, shouldPersistPreferred } = await resolveBestAccount(accounts);
+        const { selectedAddress, shouldPersistPreferred } = await resolveBestAccount(accounts, walletAddress);
 
         if (selectedAddress && isNimiqAddress(selectedAddress)) {
           const formatted = formatNimiqAddress(selectedAddress);
@@ -266,7 +315,7 @@ export function useNimiqWallet() {
           if (resAddr) rawAccounts = [resAddr];
         }
 
-        const { selectedAddress, shouldPersistPreferred } = await resolveBestAccount(rawAccounts);
+        const { selectedAddress, shouldPersistPreferred } = await resolveBestAccount(rawAccounts, walletAddress);
 
         if (selectedAddress && isNimiqAddress(selectedAddress)) {
           const formatted = formatNimiqAddress(selectedAddress);
@@ -311,7 +360,7 @@ export function useNimiqWallet() {
       setIsConnecting(false);
       return null;
     }
-  }, [fetchBalance, getNimiqProvider, getSdkProvider]);
+  }, [fetchBalance, getNimiqProvider, getSdkProvider, walletAddress]);
 
   // Real Nimiq Staking / Payment Execution
   const sendPayment = useCallback(
