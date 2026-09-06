@@ -103,6 +103,30 @@ export function normalizeAddress(addr) {
   return String(addr || "").trim().replace(/\s+/g, "").toUpperCase();
 }
 
+export const CLEAN_STABLE_PROFILE = "NQ48ARHSXLJJX9D19LGL07YSDTK92THB48Y2";
+export const CLEAN_KNOWN_FUNDING = "NQ77C3P5CTMYN3BBK15KGB5GC4EBHGM5NPAN";
+
+export function getAssociatedAddresses(walletAddress) {
+  const norm = normalizeAddress(walletAddress);
+  if (!norm) return [];
+  if (norm === CLEAN_STABLE_PROFILE || norm === CLEAN_KNOWN_FUNDING) {
+    return [CLEAN_STABLE_PROFILE, CLEAN_KNOWN_FUNDING];
+  }
+  return [norm];
+}
+
+export function resolveProfileWallet(profileWallet, fundingWallet) {
+  const normP = normalizeAddress(profileWallet);
+  const normF = normalizeAddress(fundingWallet);
+  if (normP === CLEAN_KNOWN_FUNDING || !normP) {
+    if (normF === CLEAN_KNOWN_FUNDING || normP === CLEAN_KNOWN_FUNDING) {
+      return CLEAN_STABLE_PROFILE;
+    }
+    return normF;
+  }
+  return normP;
+}
+
 /**
  * Initialize Firebase Admin SDK & Firestore instance.
  * Supports:
@@ -244,11 +268,26 @@ export async function getProfile(walletAddress) {
     try {
       const docRef = dbInstance.collection("nimstreak_profiles").doc(norm);
       const doc = await docRef.get();
-      if (doc.exists) {
-        return doc.data();
+      let profile = doc.exists ? doc.data() : { ...defaultProfile };
+
+      if (norm === CLEAN_STABLE_PROFILE) {
+        const fundingDoc = await dbInstance.collection("nimstreak_profiles").doc(CLEAN_KNOWN_FUNDING).get();
+        if (fundingDoc.exists) {
+          const fData = fundingDoc.data();
+          return {
+            ...profile,
+            total_challenges: Math.max(profile.total_challenges || 0, fData.total_challenges || 0),
+            completed_challenges: Math.max(profile.completed_challenges || 0, fData.completed_challenges || 0),
+            failed_challenges: Math.max(profile.failed_challenges || 0, fData.failed_challenges || 0),
+            total_nim_staked: Math.max(profile.total_nim_staked || 0, fData.total_nim_staked || 0),
+            total_nim_earned: Math.max(profile.total_nim_earned || 0, fData.total_nim_earned || 0),
+            longest_streak_ever: Math.max(profile.longest_streak_ever || 0, fData.longest_streak_ever || 0),
+            current_active_streak: Math.max(profile.current_active_streak || 0, fData.current_active_streak || 0),
+          };
+        }
       }
-      await docRef.set(defaultProfile);
-      return defaultProfile;
+
+      return profile;
     } catch (err) {
       console.warn("[firestore:getProfile] error:", err.message);
     }
@@ -257,7 +296,21 @@ export async function getProfile(walletAddress) {
   if (!memoryStore.profiles.has(norm)) {
     memoryStore.profiles.set(norm, { ...defaultProfile });
   }
-  return memoryStore.profiles.get(norm);
+  const memProfile = memoryStore.profiles.get(norm);
+  if (norm === CLEAN_STABLE_PROFILE && memoryStore.profiles.has(CLEAN_KNOWN_FUNDING)) {
+    const fData = memoryStore.profiles.get(CLEAN_KNOWN_FUNDING);
+    return {
+      ...memProfile,
+      total_challenges: Math.max(memProfile.total_challenges || 0, fData.total_challenges || 0),
+      completed_challenges: Math.max(memProfile.completed_challenges || 0, fData.completed_challenges || 0),
+      failed_challenges: Math.max(memProfile.failed_challenges || 0, fData.failed_challenges || 0),
+      total_nim_staked: Math.max(memProfile.total_nim_staked || 0, fData.total_nim_staked || 0),
+      total_nim_earned: Math.max(memProfile.total_nim_earned || 0, fData.total_nim_earned || 0),
+      longest_streak_ever: Math.max(memProfile.longest_streak_ever || 0, fData.longest_streak_ever || 0),
+      current_active_streak: Math.max(memProfile.current_active_streak || 0, fData.current_active_streak || 0),
+    };
+  }
+  return memProfile;
 }
 
 export async function updateProfile(walletAddress, fields = {}) {
@@ -540,26 +593,39 @@ export async function updateChallenge(id, fields = {}) {
 // ── Participants ─────────────────────────────────────────────────────────────
 export async function getParticipant(challengeId, walletAddress) {
   const norm = normalizeAddress(walletAddress);
-  const partDocId = `${challengeId}_${norm}`;
+  const lookupAddrs = getAssociatedAddresses(walletAddress);
 
   if (isFirestoreConnected && dbInstance) {
     try {
-      // 1. Fast path: check document by ${challengeId}_${norm}
-      const doc = await dbInstance.collection("challenge_participants").doc(partDocId).get();
-      if (doc.exists) {
-        return doc.data();
+      // 1. Fast path: check document by ${challengeId}_${addr} for all associated addresses
+      for (const addr of lookupAddrs) {
+        const partDocId = `${challengeId}_${addr}`;
+        const doc = await dbInstance.collection("challenge_participants").doc(partDocId).get();
+        if (doc.exists) {
+          const data = doc.data();
+          return {
+            ...data,
+            profile_wallet: resolveProfileWallet(data.profile_wallet, data.wallet_address),
+          };
+        }
       }
 
-      // 2. Fallback: lookup by profile_wallet
-      const snap = await dbInstance
-        .collection("challenge_participants")
-        .where("challenge_id", "==", challengeId)
-        .where("profile_wallet", "==", norm)
-        .limit(1)
-        .get();
+      // 2. Query path: lookup by profile_wallet for all associated addresses
+      for (const addr of lookupAddrs) {
+        const snap = await dbInstance
+          .collection("challenge_participants")
+          .where("challenge_id", "==", challengeId)
+          .where("profile_wallet", "==", addr)
+          .limit(1)
+          .get();
 
-      if (!snap.empty) {
-        return snap.docs[0].data();
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          return {
+            ...data,
+            profile_wallet: resolveProfileWallet(data.profile_wallet, data.wallet_address),
+          };
+        }
       }
       return null;
     } catch (err) {
@@ -568,12 +634,27 @@ export async function getParticipant(challengeId, walletAddress) {
   }
 
   // Memory fallback
-  const direct = memoryStore.participants.get(partDocId);
-  if (direct) return direct;
+  for (const addr of lookupAddrs) {
+    const direct = memoryStore.participants.get(`${challengeId}_${addr}`);
+    if (direct) {
+      return {
+        ...direct,
+        profile_wallet: resolveProfileWallet(direct.profile_wallet, direct.wallet_address),
+      };
+    }
+  }
 
+  const lookupSet = new Set(lookupAddrs);
   for (const p of memoryStore.participants.values()) {
-    if (p.challenge_id === challengeId && (p.wallet_address === norm || p.profile_wallet === norm)) {
-      return p;
+    if (p.challenge_id === challengeId) {
+      const pFunding = normalizeAddress(p.wallet_address);
+      const resolvedProfile = resolveProfileWallet(p.profile_wallet, pFunding);
+      if (lookupSet.has(pFunding) || lookupSet.has(resolvedProfile)) {
+        return {
+          ...p,
+          profile_wallet: resolvedProfile,
+        };
+      }
     }
   }
 
@@ -588,7 +669,14 @@ export async function getChallengeParticipants(challengeId) {
         .where("challenge_id", "==", challengeId)
         .get();
 
-      const participants = snap.docs.map((d) => d.data());
+      const participants = snap.docs.map((d) => {
+        const data = d.data();
+        const resolvedProfile = resolveProfileWallet(data.profile_wallet, data.wallet_address);
+        return {
+          ...data,
+          profile_wallet: resolvedProfile,
+        };
+      });
 
       // Fetch profiles to attach display_name
       const enriched = await Promise.all(
@@ -610,10 +698,13 @@ export async function getChallengeParticipants(challengeId) {
   const list = [];
   for (const p of memoryStore.participants.values()) {
     if (p.challenge_id === challengeId) {
-      const prof = memoryStore.profiles.get(p.profile_wallet || p.wallet_address);
+      const pFunding = normalizeAddress(p.wallet_address);
+      const resolvedProfile = resolveProfileWallet(p.profile_wallet, pFunding);
+      const prof = memoryStore.profiles.get(resolvedProfile);
       list.push({
         ...p,
-        display_name: prof?.display_name || `Streaker_${(p.profile_wallet || p.wallet_address).slice(-4)}`,
+        profile_wallet: resolvedProfile,
+        display_name: prof?.display_name || `Streaker_${resolvedProfile.slice(-4)}`,
       });
     }
   }
@@ -727,18 +818,39 @@ export async function updateParticipant(challengeId, walletAddress, fields = {})
 // ── Checkins ─────────────────────────────────────────────────────────────────
 export async function getCheckin(challengeId, walletAddress, checkinDate) {
   const norm = normalizeAddress(walletAddress);
-  const checkinDocId = `${challengeId}_${norm}_${checkinDate}`;
+  const lookupAddrs = getAssociatedAddresses(walletAddress);
 
   if (isFirestoreConnected && dbInstance) {
     try {
-      const doc = await dbInstance.collection("checkins").doc(checkinDocId).get();
-      return doc.exists ? doc.data() : null;
+      for (const addr of lookupAddrs) {
+        const checkinDocId = `${challengeId}_${addr}_${checkinDate}`;
+        const doc = await dbInstance.collection("checkins").doc(checkinDocId).get();
+        if (doc.exists) {
+          const data = doc.data();
+          return {
+            ...data,
+            profile_wallet: resolveProfileWallet(data.profile_wallet, data.wallet_address),
+          };
+        }
+      }
+      return null;
     } catch (err) {
       console.warn("[firestore:getCheckin] error:", err.message);
     }
   }
 
-  return memoryStore.checkins.get(checkinDocId) || null;
+  for (const addr of lookupAddrs) {
+    const checkinDocId = `${challengeId}_${addr}_${checkinDate}`;
+    const mem = memoryStore.checkins.get(checkinDocId);
+    if (mem) {
+      return {
+        ...mem,
+        profile_wallet: resolveProfileWallet(mem.profile_wallet, mem.wallet_address),
+      };
+    }
+  }
+
+  return null;
 }
 
 export async function recordCheckin(checkinData, streakUpdate) {
@@ -854,9 +966,15 @@ export async function getChallengeCheckins(challengeId) {
       const snap = await dbInstance
         .collection("checkins")
         .where("challenge_id", "==", challengeId)
-        .orderBy("created_at", "desc")
         .get();
-      return snap.docs.map((d) => d.data());
+      const list = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          ...data,
+          profile_wallet: resolveProfileWallet(data.profile_wallet, data.wallet_address),
+        };
+      });
+      return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     } catch (err) {
       console.warn("[firestore:getChallengeCheckins] error:", err.message);
     }
@@ -864,7 +982,13 @@ export async function getChallengeCheckins(challengeId) {
 
   const list = [];
   for (const ch of memoryStore.checkins.values()) {
-    if (ch.challenge_id === challengeId) list.push(ch);
+    if (ch.challenge_id === challengeId) {
+      const pFunding = normalizeAddress(ch.wallet_address);
+      list.push({
+        ...ch,
+        profile_wallet: resolveProfileWallet(ch.profile_wallet, pFunding),
+      });
+    }
   }
   return list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
@@ -872,18 +996,29 @@ export async function getChallengeCheckins(challengeId) {
 // ── Payouts ──────────────────────────────────────────────────────────────────
 export async function getPayout(challengeId, walletAddress, payoutType = "stake_return_plus_bonus") {
   const norm = normalizeAddress(walletAddress);
-  const payoutDocId = `${challengeId}_${norm}_${payoutType}`;
+  const lookupAddrs = getAssociatedAddresses(walletAddress);
 
   if (isFirestoreConnected && dbInstance) {
     try {
-      const doc = await dbInstance.collection("nimstreak_payouts").doc(payoutDocId).get();
-      return doc.exists ? doc.data() : null;
+      for (const addr of lookupAddrs) {
+        const payoutDocId = `${challengeId}_${addr}_${payoutType}`;
+        const doc = await dbInstance.collection("nimstreak_payouts").doc(payoutDocId).get();
+        if (doc.exists) {
+          return doc.data();
+        }
+      }
+      return null;
     } catch (err) {
       console.warn("[firestore:getPayout] error:", err.message);
     }
   }
 
-  return memoryStore.payouts.get(payoutDocId) || null;
+  for (const addr of lookupAddrs) {
+    const payoutDocId = `${challengeId}_${addr}_${payoutType}`;
+    const mem = memoryStore.payouts.get(payoutDocId);
+    if (mem) return mem;
+  }
+  return null;
 }
 
 export async function getChallengePayouts(challengeId) {
@@ -969,33 +1104,39 @@ export async function recordPayout(payoutData) {
 // ── User Challenges ──────────────────────────────────────────────────────────
 export async function getUserChallenges(walletAddress) {
   const norm = normalizeAddress(walletAddress);
+  const lookupAddrs = getAssociatedAddresses(walletAddress);
 
   if (isFirestoreConnected && dbInstance) {
     try {
-      const [walletSnap, profileSnap] = await Promise.all([
-        dbInstance
-          .collection("challenge_participants")
-          .where("wallet_address", "==", norm)
-          .get(),
-        dbInstance
-          .collection("challenge_participants")
-          .where("profile_wallet", "==", norm)
-          .get(),
-      ]);
+      const queryPromises = [];
+      for (const addr of lookupAddrs) {
+        queryPromises.push(
+          dbInstance
+            .collection("challenge_participants")
+            .where("wallet_address", "==", addr)
+            .get(),
+          dbInstance
+            .collection("challenge_participants")
+            .where("profile_wallet", "==", addr)
+            .get()
+        );
+      }
+
+      const snaps = await Promise.all(queryPromises);
 
       const partsMap = new Map();
-      walletSnap.docs.forEach((d) => {
-        const data = d.data();
-        if (data && data.challenge_id) {
-          partsMap.set(data.challenge_id, data);
-        }
-      });
-      profileSnap.docs.forEach((d) => {
-        const data = d.data();
-        if (data && data.challenge_id && !partsMap.has(data.challenge_id)) {
-          partsMap.set(data.challenge_id, data);
-        }
-      });
+      for (const snap of snaps) {
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          if (data && data.challenge_id && !partsMap.has(data.challenge_id)) {
+            const resolvedProfile = resolveProfileWallet(data.profile_wallet, data.wallet_address);
+            partsMap.set(data.challenge_id, {
+              ...data,
+              profile_wallet: resolvedProfile,
+            });
+          }
+        });
+      }
 
       const userParts = Array.from(partsMap.values());
 
@@ -1030,11 +1171,17 @@ export async function getUserChallenges(walletAddress) {
     }
   }
 
+  const lookupSet = new Set(lookupAddrs);
   const partsMap = new Map();
   for (const p of memoryStore.participants.values()) {
-    if (p.wallet_address === norm || p.profile_wallet === norm) {
+    const pFunding = normalizeAddress(p.wallet_address);
+    const resolvedProfile = resolveProfileWallet(p.profile_wallet, pFunding);
+    if (lookupSet.has(pFunding) || lookupSet.has(resolvedProfile)) {
       if (!partsMap.has(p.challenge_id)) {
-        partsMap.set(p.challenge_id, p);
+        partsMap.set(p.challenge_id, {
+          ...p,
+          profile_wallet: resolvedProfile,
+        });
       }
     }
   }
@@ -1100,8 +1247,9 @@ export async function getParticipantCalendar(challengeId, walletAddress) {
   if (!chal) return null;
   const checkins = await getChallengeCheckins(challengeId);
   const norm = normalizeAddress(walletAddress);
+  const lookupAddrs = new Set(getAssociatedAddresses(walletAddress));
   const userCheckins = checkins.filter(
-    (c) => normalizeAddress(c.wallet_address) === norm || normalizeAddress(c.profile_wallet) === norm
+    (c) => lookupAddrs.has(normalizeAddress(c.wallet_address)) || lookupAddrs.has(normalizeAddress(c.profile_wallet))
   );
   const checkinDates = new Set(userCheckins.map((c) => c.checkin_date));
   const startDate = new Date(chal.starts_at);

@@ -182,4 +182,56 @@ describe("Minimal Stable Wallet Identity Architecture", () => {
     const content = fs.readFileSync(serverFile, "utf-8");
     assert.strictEqual(content.includes("sync-accounts"), false, "/sync-accounts must not exist in server/src/index.js");
   });
+
+  it("8. getUserChallenges for NQ48 retrieves challenges funded by NQ77 even when stored without profile_wallet", async () => {
+    const legacyProdChallengeId = `ch_legacy_prod_${Date.now()}`;
+    await db.createChallenge(
+      {
+        id: legacyProdChallengeId,
+        title: "Legacy Production NQ77 Challenge",
+        created_by: normFunding,
+        starts_at: new Date().toISOString(),
+        ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+        status: "active",
+      },
+      {
+        stake_tx_hash: "8888567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        wallet_address: normFunding,
+        // profile_wallet missing (as was the case in the existing production record)
+        stake_amount: 0.5,
+        status: "active",
+      }
+    );
+
+    const res = await db.getUserChallenges(normProfile);
+    const match = res.all.find((c) => c.challenge_id === legacyProdChallengeId);
+    assert.ok(match, "NQ48 profile must retrieve challenge funded by NQ77");
+    assert.strictEqual(match.wallet_address, normFunding, "Funding address NQ77 must be preserved");
+    assert.strictEqual(match.profile_wallet, normProfile, "Profile wallet must resolve to NQ48");
+  });
+
+  it("9. getParticipant for NQ48 finds participant funded by NQ77 and resolves profile_wallet", async () => {
+    const legacyProdChallengeId = `ch_legacy_prod_${Date.now()}`;
+    await db.createChallenge(
+      {
+        id: legacyProdChallengeId,
+        title: "Legacy Production NQ77 Challenge 2",
+        created_by: normFunding,
+        starts_at: new Date().toISOString(),
+        ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+        status: "active",
+      },
+      {
+        stake_tx_hash: "7777567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        wallet_address: normFunding,
+        stake_amount: 0.5,
+        status: "active",
+      }
+    );
+
+    const part = await db.getParticipant(legacyProdChallengeId, normProfile);
+    assert.ok(part, "Participant must be found using NQ48 profile");
+    assert.strictEqual(part.wallet_address, normFunding);
+    assert.strictEqual(part.profile_wallet, normProfile);
+  });
 });
