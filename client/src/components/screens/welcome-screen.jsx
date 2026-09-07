@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FloatingHabitsBackground } from "../ui/floating-habits-bg.jsx";
 
 export function WelcomeScreen({
+  challenges = [],
   onSignIn,
   isConnecting = false,
   walletStatus = "",
@@ -11,8 +12,8 @@ export function WelcomeScreen({
 
   return (
     <div className="welcome-screen-wrapper">
-      {/* Dynamic Colorful Floating Tasks & Mesh Orbs Background */}
-      <FloatingHabitsBackground />
+      {/* Dynamic Colorful Floating Tasks & Mesh Orbs Background Canvas */}
+      <FloatingHabitsBackground challenges={challenges} />
 
       <div className="welcome-card">
         {!showDetails ? (

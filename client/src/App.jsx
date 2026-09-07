@@ -439,6 +439,7 @@ export default function App() {
           </div>
         )}
         <WelcomeScreen
+          challenges={challenges}
           onSignIn={handleSignIn}
           onManualConnect={handleManualConnect}
           isConnecting={isConnecting}

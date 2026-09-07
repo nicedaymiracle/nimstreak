@@ -235,12 +235,17 @@ export function CreateChallengeScreen({
 
           {/* NIM Stake Preview Banner */}
           <div className="stake-preview-banner">
-            <div className="stake-preview-banner__icon">💎</div>
-            <div className="stake-preview-banner__info">
-              <span className="stake-preview-banner__label">Locked on-chain:</span>
-              <span className="stake-preview-banner__val">{Number(stakeNim || 0).toFixed(1)} NIM</span>
+            <div className="stake-preview-banner__main">
+              <span className="stake-preview-banner__icon" aria-hidden="true">💎</span>
+              <div className="stake-preview-banner__details">
+                <span className="stake-preview-banner__label">Locked On-Chain</span>
+                <span className="stake-preview-banner__val">{Number(stakeNim || 0).toFixed(1)} NIM</span>
+              </div>
             </div>
-            <span className="stake-preview-banner__tag">100% Refundable on Completion</span>
+            <div className="stake-preview-banner__guarantee">
+              <span className="stake-preview-banner__shield" aria-hidden="true">🛡️</span>
+              <span className="stake-preview-banner__guarantee-text">100% Refundable</span>
+            </div>
           </div>
         </section>
 
@@ -291,25 +296,36 @@ export function CreateChallengeScreen({
 
         {/* ── REVIEW / SUMMARY AREA ─────────────────────────────────── */}
         <div className="create-summary-card">
-          <div className="create-summary-badge-row">
-            <span className="create-summary-metric">
-              ⏱️ {durationDays} Days · 💎 {Number(stakeNim || 0).toFixed(1)} NIM stake
-            </span>
+          <div className="create-summary-header">
+            <span className="create-summary-title">Challenge Summary</span>
             <span className="create-summary-type-tag">
               {type === "solo" ? "👤 Solo Mode" : type === "group" ? "👥 Group Mode" : "🌐 Public Mode"}
             </span>
           </div>
 
-          <p className="create-summary-desc">
-            Finish your streak to reclaim your {Number(stakeNim || 0).toFixed(1)} NIM stake
-            {type !== "solo" ? " + eligible bonus from the quitter pool." : "."}
-          </p>
+          <div className="create-summary-pills-row">
+            <div className="create-summary-pill">
+              <span className="create-summary-pill__icon">⏱️</span>
+              <span className="create-summary-pill__text">{durationDays} Days</span>
+            </div>
+            <div className="create-summary-pill create-summary-pill--stake">
+              <span className="create-summary-pill__icon">💎</span>
+              <span className="create-summary-pill__text">{Number(stakeNim || 0).toFixed(1)} NIM Stake</span>
+            </div>
+          </div>
 
-          <p className="create-summary-sub">
-            {type === "solo"
-              ? "Solo habit challenges return 100% of your stake upon completing all daily check-ins."
-              : "Finishers share eligible forfeited stakes after the 10% treasury fee. Your potential bonus depends on participant completion rate."}
-          </p>
+          <div className="create-summary-body">
+            <p className="create-summary-desc">
+              Finish your streak to reclaim your {Number(stakeNim || 0).toFixed(1)} NIM stake
+              {type !== "solo" ? " + eligible bonus from the quitter pool." : "."}
+            </p>
+
+            <p className="create-summary-sub">
+              {type === "solo"
+                ? "Solo habit challenges return 100% of your stake upon completing all daily check-ins."
+                : "Finishers share eligible forfeited stakes after the 10% treasury fee. Your potential bonus depends on participant completion rate."}
+            </p>
+          </div>
         </div>
 
         {/* Primary CTA */}
