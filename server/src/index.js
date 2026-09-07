@@ -113,9 +113,20 @@ app.get("/api/profile/:walletAddress", async (req, res) => {
     const badges = await db.getBadges(walletAddress);
     const userChals = await db.getUserChallenges(walletAddress);
 
+    // Defensive guarantee: ensure first_challenge badge is present if user has created/joined challenges
+    const badgeList = badges || [];
+    const hasFirstBadge = badgeList.some((b) => b.badge_type === "first_challenge");
+    if (!hasFirstBadge && ((profile?.total_challenges || 0) > 0 || (userChals?.all?.length || 0) > 0)) {
+      const chalId = userChals?.all?.[0]?.challenge_id || "global";
+      const awarded = await db.awardBadge(walletAddress, "first_challenge", chalId);
+      if (awarded) {
+        badgeList.unshift(awarded);
+      }
+    }
+
     return res.json({
       profile,
-      badges: badges || [],
+      badges: badgeList,
       recentChallenges: userChals.all?.slice(0, 10) || [],
     });
   } catch (err) {

@@ -9,7 +9,7 @@ let dbInstance = null;
 let isFirestoreConnected = false;
 
 // ── In-Memory Store (used during local tests or when Firebase credentials are not set) ──
-const memoryStore = {
+export const memoryStore = {
   profiles: new Map(),
   challenges: new Map(),
   participants: new Map(), // key: `${challengeId}_${walletAddress}`
@@ -259,29 +259,58 @@ export async function updateProfile(walletAddress, fields = {}) {
 
 // ── Badges ───────────────────────────────────────────────────────────────────
 export async function getBadges(walletAddress) {
-  const norm = normalizeAddress(walletAddress);
+  const norm = resolveProfileWallet(walletAddress, walletAddress);
+  const targetAddresses = getAssociatedAddresses(norm);
+
   if (isFirestoreConnected && dbInstance) {
     try {
-      const snap = await dbInstance
-        .collection("nimstreak_badges")
-        .where("wallet_address", "==", norm)
-        .orderBy("earned_at", "desc")
-        .get();
-      return snap.docs.map((d) => d.data());
+      const badgesMap = new Map();
+      for (const addr of targetAddresses) {
+        const snap = await dbInstance
+          .collection("nimstreak_badges")
+          .where("wallet_address", "==", addr)
+          .get();
+        for (const doc of snap.docs) {
+          const data = doc.data();
+          if (data) {
+            const dedupKey = data.badge_type === "first_challenge"
+              ? "first_challenge"
+              : (data.id || `${data.wallet_address}_${data.badge_type}`);
+            if (!badgesMap.has(dedupKey)) {
+              badgesMap.set(dedupKey, data);
+            }
+          }
+        }
+      }
+
+      const results = Array.from(badgesMap.values());
+      for (const b of results) {
+        if (b.id) memoryStore.badges.set(b.id, b);
+      }
+      return results.sort((a, b) => new Date(b.earned_at || 0) - new Date(a.earned_at || 0));
     } catch (err) {
       console.warn("[firestore:getBadges] error:", err.message);
     }
   }
 
   const list = [];
+  const seen = new Set();
   for (const b of memoryStore.badges.values()) {
-    if (b.wallet_address === norm) list.push(b);
+    if (targetAddresses.includes(b.wallet_address)) {
+      const dedupKey = b.badge_type === "first_challenge"
+        ? "first_challenge"
+        : (b.id || `${b.wallet_address}_${b.badge_type}`);
+      if (!seen.has(dedupKey)) {
+        seen.add(dedupKey);
+        list.push(b);
+      }
+    }
   }
-  return list.sort((a, b) => new Date(b.earned_at) - new Date(a.earned_at));
+  return list.sort((a, b) => new Date(b.earned_at || 0) - new Date(a.earned_at || 0));
 }
 
 export async function awardBadge(walletAddress, badgeType, challengeId = null) {
-  const norm = normalizeAddress(walletAddress);
+  const norm = resolveProfileWallet(walletAddress, walletAddress);
   // For milestone badges like first_challenge, ensure unique un-duplicated achievement
   const docId = badgeType === "first_challenge"
     ? `${norm}_first_challenge`
@@ -300,9 +329,12 @@ export async function awardBadge(walletAddress, badgeType, challengeId = null) {
       const existing = await docRef.get();
       if (!existing.exists) {
         await docRef.set(badgeData);
+        memoryStore.badges.set(docId, badgeData);
         return badgeData;
       }
-      return existing.data();
+      const data = existing.data();
+      memoryStore.badges.set(docId, data);
+      return data;
     } catch (err) {
       console.warn("[firestore:awardBadge] error:", err.message);
     }
@@ -438,7 +470,7 @@ export async function createChallenge(challengeData, creatorParticipantData) {
 
   const normCreator = normalizeAddress(challengeData.created_by);
   const normFunding = normalizeAddress(creatorParticipantData?.wallet_address || normCreator);
-  const normProfile = normalizeAddress(creatorParticipantData?.profile_wallet || normCreator);
+  const normProfile = resolveProfileWallet(creatorParticipantData?.profile_wallet || normCreator, normFunding);
   const partDocId = `${challengeId}_${normFunding}`;
   const fullParticipant = {
     ...creatorParticipantData,
@@ -665,7 +697,7 @@ export async function checkReplayStakeTxHash(txHash) {
 
 export async function addParticipant(challengeId, participantData) {
   const normFunding = normalizeAddress(participantData.wallet_address);
-  const normProfile = normalizeAddress(participantData.profile_wallet || participantData.wallet_address);
+  const normProfile = resolveProfileWallet(participantData.profile_wallet || participantData.wallet_address, normFunding);
   const partDocId = `${challengeId}_${normFunding}`;
   const fullPart = {
     ...participantData,
@@ -957,9 +989,9 @@ export async function getChallengePayouts(challengeId) {
       const snap = await dbInstance
         .collection("nimstreak_payouts")
         .where("challenge_id", "==", challengeId)
-        .orderBy("created_at", "desc")
         .get();
-      return snap.docs.map((d) => d.data());
+      const list = snap.docs.map((d) => d.data());
+      return list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     } catch (err) {
       console.warn("[firestore:getChallengePayouts] error:", err.message);
     }

@@ -20,7 +20,8 @@ class GlobalErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: "2rem", color: "#fff", background: "#0A0C14", minHeight: "100vh", fontFamily: "sans-serif", textAlign: "center" }}>
+        <div style={{ padding: "2rem", color: "#fff", background: "#0A0C14", minHeight: "100vh", fontFamily: "sans-serif", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <img src="/nimstreak-logo.png" alt="NimStreak" style={{ width: 48, height: 48, marginBottom: "1rem" }} />
           <h2 style={{ color: "#E9B213", marginBottom: "1rem" }}>NimStreak Error</h2>
           <p style={{ color: "#94A3B8", marginBottom: "1.5rem" }}>{this.state.error?.message || "An unexpected error occurred while loading NimStreak."}</p>
           <button

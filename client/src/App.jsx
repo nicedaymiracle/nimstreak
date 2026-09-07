@@ -432,7 +432,7 @@ export default function App() {
   // REQUIREMENT: User must be signed in with wallet to view main interface
   if (!walletAddress) {
     return (
-      <div className="nimstreak-app">
+      <div className="nimstreak-app nimstreak-app--welcome">
         {toastMessage && (
           <div className="toast-notification">
             <span>{toastMessage}</span>
@@ -476,7 +476,7 @@ export default function App() {
           role="button"
           tabIndex={0}
         >
-          <span className="brand-flame">🔥</span>
+          <img src="/nimstreak-logo.png" alt="" className="brand-logo-img" width="28" height="28" aria-hidden="true" />
           <span className="brand-name">Nim<span className="brand-name--gold">Streak</span></span>
         </div>
 
