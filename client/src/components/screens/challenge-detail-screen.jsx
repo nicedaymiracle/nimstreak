@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CategoryBadge, StatusIndicator } from "../ui/streak-stickers.jsx";
+import { CategoryBadge } from "../ui/streak-stickers.jsx";
 import { NimiqIdenticon } from "../ui/avatar-circle.jsx";
 import { shortenWalletAddress, shortenHash } from "../../utils/ui-helpers.js";
 import {
@@ -28,7 +28,8 @@ export function ChallengeDetailScreen({
   const [proofText, setProofText] = useState("");
   const [proofPhotoUrl, setProofPhotoUrl] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
-  const [checkinMessage, setCheckinMessage] = useState("");
+  const [checkinSuccess, setCheckinSuccess] = useState("");
+  const [checkinError, setCheckinError] = useState("");
   const [claiming, setClaiming] = useState(false);
   const [claimMessage, setClaimMessage] = useState("");
   const [copiedInvite, setCopiedInvite] = useState(false);
@@ -122,17 +123,17 @@ export function ChallengeDetailScreen({
 
   const isParticipant = Boolean(participant);
   const isFailed = participant?.status === "failed";
-  const isChallengeEnded = challengeData?.challenge?.status === "completed" || (challengeData?.challenge?.ends_at && new Date(challengeData.challenge.ends_at) <= new Date());
+  const isChallengeEnded =
+    challengeData?.challenge?.status === "completed" ||
+    (challengeData?.challenge?.ends_at && new Date(challengeData.challenge.ends_at) <= new Date());
   const isCompleted = participant?.status === "completed" || (isChallengeEnded && !isFailed && isParticipant);
 
   // Check if payout has already been made
-  const payoutRecord = challengeData?.payouts?.find(
-    (p) => {
-      const pAddr = (p.wallet_address || "").replace(/\s+/g, "").toUpperCase();
-      const partAddr = (participant?.wallet_address || "").replace(/\s+/g, "").toUpperCase();
-      return pAddr === cleanWallet || (partAddr && pAddr === partAddr);
-    }
-  );
+  const payoutRecord = challengeData?.payouts?.find((p) => {
+    const pAddr = (p.wallet_address || "").replace(/\s+/g, "").toUpperCase();
+    const partAddr = (participant?.wallet_address || "").replace(/\s+/g, "").toUpperCase();
+    return pAddr === cleanWallet || (partAddr && pAddr === partAddr);
+  });
   const hasClaimed = Boolean(payoutRecord && payoutRecord.status === "sent");
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -154,19 +155,20 @@ export function ChallengeDetailScreen({
     }
 
     setCheckingIn(true);
-    setCheckinMessage("");
+    setCheckinSuccess("");
+    setCheckinError("");
 
     try {
       const res = await onCheckin(challengeId, {
         proofText,
         proofPhotoUrl,
       });
-      setCheckinMessage(res.message || "Daily check-in locked in! 🔥");
+      setCheckinSuccess(res?.message || "Daily check-in locked in! Your streak is safe. 🔥");
       setProofText("");
       setProofPhotoUrl("");
       await loadDetails();
     } catch (err) {
-      setCheckinMessage(err.message || "Check-in failed");
+      setCheckinError(err?.message || "Check-in failed. Please try again.");
     } finally {
       setCheckingIn(false);
     }
@@ -181,7 +183,7 @@ export function ChallengeDetailScreen({
       await onJoinChallenge(challengeId, challengeData.challenge.stake_nim);
       await loadDetails();
     } catch (err) {
-      setError(err.message || "Failed to join");
+      setError(err?.message || "Failed to join");
     }
   };
 
@@ -195,11 +197,11 @@ export function ChallengeDetailScreen({
     try {
       if (typeof onClaim === "function") {
         const res = await onClaim(challengeId);
-        setClaimMessage(`🎉 Payout sent! Tx: ${shortenHash(res.txHash)}`);
+        setClaimMessage(`🎉 Payout sent! Tx: ${shortenHash(res?.txHash)}`);
       }
       await loadDetails();
     } catch (err) {
-      setClaimMessage(err.message || "Failed to claim reward");
+      setClaimMessage(err?.message || "Failed to claim reward");
     } finally {
       setClaiming(false);
     }
@@ -227,7 +229,7 @@ export function ChallengeDetailScreen({
   if (error || !challengeData) {
     return (
       <div className="screen-container">
-        <button type="button" className="back-btn" onClick={onBack}>
+        <button type="button" className="back-btn" onClick={onBack} aria-label="Go back">
           ← Back
         </button>
         <div className="form-banner form-banner--error">{error || "Challenge not found"}</div>
@@ -246,8 +248,9 @@ export function ChallengeDetailScreen({
 
   return (
     <div className="screen-container challenge-detail-screen" ref={cardRef}>
+      {/* Top Header Bar */}
       <header className="page-header page-header--with-back">
-        <button type="button" className="back-btn" onClick={onBack}>
+        <button type="button" className="back-btn" onClick={onBack} aria-label="Go back to challenges">
           ← Back
         </button>
         <div className="challenge-detail-tags">
@@ -260,42 +263,71 @@ export function ChallengeDetailScreen({
 
       {/* Main Challenge Hero Banner */}
       <section className="detail-hero">
-        <h1 className="detail-title">{challenge.title}</h1>
+        <div className="detail-hero__top">
+          <h1 className="detail-title">{challenge.title}</h1>
+          {isParticipant && (
+            <div className="detail-participant-status">
+              {isCompleted ? (
+                <span className="status-pill status-pill--won">🏆 Finished & Won</span>
+              ) : isFailed ? (
+                <span className="status-pill status-pill--forfeited">💀 Stake Forfeited</span>
+              ) : isCheckedInToday ? (
+                <span className="status-pill status-pill--secured">✓ Checked in today</span>
+              ) : (
+                <span className="status-pill status-pill--pending">⏳ Check-in needed today</span>
+              )}
+            </div>
+          )}
+        </div>
+
         {challenge.description && <p className="detail-desc">{challenge.description}</p>}
 
         {challenge.invite_code && (
-          <div className="invite-code-pill" onClick={copyInvite}>
+          <div
+            className="invite-code-pill"
+            onClick={copyInvite}
+            role="button"
+            tabIndex={0}
+            title="Click to copy invite code"
+          >
             <span>🔑 Code: <strong>{challenge.invite_code}</strong></span>
             <span className="invite-copy-label">{copiedInvite ? "Copied! ✅" : "Copy"}</span>
           </div>
         )}
 
-        {/* Big Numbers Row */}
+        {/* 4 Prominent Stat Boxes Grid */}
         <div className="detail-stat-row">
           <div className="d-box">
             <span className="d-box__val" ref={streakNumRef}>
               🔥 {currentStreak}
             </span>
-            <span className="d-box__lbl">Your Streak</span>
+            <span className="d-box__lbl">Current Streak</span>
           </div>
 
           <div className="d-box">
-            <span className="d-box__val">{challenge.stake_nim} NIM</span>
-            <span className="d-box__lbl">Stake Amount</span>
+            <span className="d-box__val">
+              Day {Math.min(currentStreak, duration)}/{duration}
+            </span>
+            <span className="d-box__lbl">Duration</span>
+          </div>
+
+          <div className="d-box">
+            <span className="d-box__val">{participant?.stake_amount || challenge.stake_nim} NIM</span>
+            <span className="d-box__lbl">Your Stake</span>
           </div>
 
           <div className="d-box">
             <span className="d-box__val" ref={bonusRef}>
-              💎 +{(stats?.estimatedBonusPerFinisher || 0).toFixed(2)}
+              🏆 {stats?.totalPool || 0} NIM
             </span>
-            <span className="d-box__lbl">Est. Bonus NIM</span>
+            <span className="d-box__lbl">Quitter Pool</span>
           </div>
         </div>
 
-        {/* Progress Bar */}
+        {/* Visual Progress Bar */}
         <div className="streak-progress-wrap">
           <div className="streak-progress-header">
-            <span>Day {currentStreak} of {duration}</span>
+            <span>Day {Math.min(currentStreak, duration)} of {duration}</span>
             <span>{progressPercent}% Complete</span>
           </div>
           <div className="streak-progress-bar">
@@ -309,40 +341,23 @@ export function ChallengeDetailScreen({
 
       {/* WINNER CLAIM REWARD SECTION */}
       {isParticipant && !isFailed && isCompleted && (
-        <section className="claim-reward-card" style={{
-          background: "linear-gradient(135deg, rgba(233,178,19,0.15), rgba(20,20,30,0.85))",
-          border: "2px solid var(--gold-primary, #E9B213)",
-          borderRadius: "16px",
-          padding: "1.25rem",
-          margin: "1rem 0",
-          textAlign: "center",
-          boxShadow: "0 8px 32px rgba(233,178,19,0.2)"
-        }}>
-          <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🏆</div>
-          <h3 style={{ color: "var(--gold-light, #FFD566)", margin: "0 0 0.5rem" }}>
-            Challenge Completed! You Won!
-          </h3>
-          <p style={{ fontSize: "0.9rem", color: "#ccc", margin: "0 0 1rem" }}>
-            You stayed consistent through all {duration} days. Your original stake + forfeit bonus is ready.
+        <section className="claim-reward-card">
+          <div className="claim-reward-card__icon">🏆</div>
+          <h3 className="claim-reward-card__title">Challenge Completed! You Won!</h3>
+          <p className="claim-reward-card__desc">
+            You stayed consistent through all {duration} days. Your original stake of{" "}
+            <strong>{participant?.stake_amount || challenge.stake_nim} NIM</strong> + your share of the quitter pool is ready.
           </p>
 
           {hasClaimed ? (
-            <div style={{
-              background: "rgba(10,40,20,0.8)",
-              border: "1px solid #2ECC71",
-              borderRadius: "10px",
-              padding: "0.85rem",
-              color: "#2ECC71",
-              fontSize: "0.9rem"
-            }}>
-              ✅ <strong>Reward Claimed & Sent ({payoutRecord.amount_nim} NIM)</strong>
+            <div className="claim-reward-claimed-banner">
+              <div>✅ <strong>Reward Claimed & Sent ({payoutRecord.amount_nim} NIM)</strong></div>
               {payoutRecord.tx_hash && (
-                <div style={{ marginTop: "0.35rem", fontSize: "0.75rem", opacity: 0.85 }}>
+                <div className="claim-reward-tx-link">
                   <a
                     href={`https://nimiq.watch/tx/${payoutRecord.tx_hash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#2ECC71", textDecoration: "underline" }}
                   >
                     View on Nimiq Watch ↗ ({shortenHash(payoutRecord.tx_hash)})
                   </a>
@@ -353,71 +368,108 @@ export function ChallengeDetailScreen({
             <div>
               <button
                 type="button"
-                className="btn btn--gold-glow btn--lg btn--full"
+                className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
                 onClick={handleClaimPayout}
                 disabled={claiming}
-                style={{ fontSize: "1.05rem", fontWeight: 800 }}
               >
                 {claiming ? "Signing Treasury Payout..." : `💎 CLAIM ${estimatedTotalPayout} NIM`}
               </button>
               {claimMessage && (
-                <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "var(--gold-primary)" }}>
-                  {claimMessage}
-                </p>
+                <p className="claim-reward-msg">{claimMessage}</p>
               )}
             </div>
           )}
         </section>
       )}
 
-      {/* Daily Check-In Action Section */}
+      {/* Daily Check-In Action Section (Primary Habit Loop) */}
       {isParticipant && !isFailed && !isCompleted && (
         <section className="checkin-action-card">
           <div className="checkin-action-card__header">
-            <h3>Daily Habit Log</h3>
-            <span className="checkin-type-tag">Proof: {challenge.checkin_type}</span>
+            <div>
+              <h3 className="checkin-action-card__title">Daily Check-In</h3>
+              <p className="checkin-action-card__subtitle">
+                {isCheckedInToday
+                  ? "Your streak and stake are secured for today."
+                  : "Check in once every 24 hours to protect your stake."}
+              </p>
+            </div>
+            <span className="checkin-type-tag">Proof: {challenge.checkin_type || "None"}</span>
           </div>
 
           {challenge.checkin_type === "text" && !isCheckedInToday && (
-            <textarea
-              className="form-textarea"
-              placeholder="Log today's workout, progress or notes..."
-              value={proofText}
-              onChange={(e) => setProofText(e.target.value)}
-              rows={2}
-            />
+            <div className="checkin-proof-input-group">
+              <label htmlFor="proof-text-input" className="checkin-proof-label">
+                Daily Log / Progress Note
+              </label>
+              <textarea
+                id="proof-text-input"
+                className="form-textarea"
+                placeholder="Log today's workout, progress or notes..."
+                value={proofText}
+                onChange={(e) => setProofText(e.target.value)}
+                rows={2}
+              />
+            </div>
           )}
 
           {challenge.checkin_type === "photo" && !isCheckedInToday && (
-            <input
-              type="url"
-              className="form-input"
-              placeholder="Paste photo / proof URL (e.g. imgur, screenshot)"
-              value={proofPhotoUrl}
-              onChange={(e) => setProofPhotoUrl(e.target.value)}
-            />
+            <div className="checkin-proof-input-group">
+              <label htmlFor="proof-photo-input" className="checkin-proof-label">
+                Proof Photo URL
+              </label>
+              <input
+                id="proof-photo-input"
+                type="url"
+                className="form-input"
+                placeholder="Paste photo / proof URL (e.g. imgur, screenshot)"
+                value={proofPhotoUrl}
+                onChange={(e) => setProofPhotoUrl(e.target.value)}
+              />
+            </div>
           )}
 
-          <button
-            ref={checkinBtnRef}
-            type="button"
-            className={`btn btn--lg btn--full ${
-              isCheckedInToday ? "btn--checked" : "btn--gold-glow"
-            }`}
-            onClick={handleDailyCheckin}
-            disabled={isCheckedInToday || checkingIn}
-          >
-            {checkingIn ? (
-              "Locking in check-in..."
-            ) : isCheckedInToday ? (
-              "✅ Checked In Today! Streak Safe"
-            ) : (
-              "🔥 Tap Daily Check-in"
-            )}
-          </button>
+          {/* Action CTA Button */}
+          {isCheckedInToday ? (
+            <button
+              type="button"
+              className="btn btn--checked-in btn--full"
+              disabled
+            >
+              ✓ Checked in today
+            </button>
+          ) : (
+            <button
+              ref={checkinBtnRef}
+              type="button"
+              className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
+              onClick={handleDailyCheckin}
+              disabled={checkingIn}
+            >
+              {checkingIn ? "⏳ Locking in check-in..." : "🔥 Check in today"}
+            </button>
+          )}
 
-          {checkinMessage && (
-            <p className="checkin-feedback-msg">{checkinMessage}</p>
+          {/* Success Feedback */}
+          {checkinSuccess && (
+            <div className="detail-feedback-banner detail-feedback-banner--success">
+              ✓ {checkinSuccess}
+            </div>
+          )}
+
+          {/* Error Feedback with Retry */}
+          {checkinError && (
+            <div className="detail-feedback-banner detail-feedback-banner--error">
+              <span>⚠️ {checkinError}</span>
+              <button
+                type="button"
+                className="detail-feedback-retry-btn"
+                onClick={handleDailyCheckin}
+                disabled={checkingIn}
+              >
+                Retry
+              </button>
+            </div>
           )}
         </section>
       )}
@@ -426,12 +478,15 @@ export function ChallengeDetailScreen({
       {!isParticipant && (
         <section className="join-cta-card">
           <div className="join-cta-card__content">
-            <h3>Ready to join this challenge?</h3>
-            <p>Stake {challenge.stake_nim} NIM to enter the accountability arena.</p>
+            <h3>Ready to take on this challenge?</h3>
+            <p>
+              Stake <strong>{challenge.stake_nim} NIM</strong> to join. Complete all {duration} days
+              to reclaim your stake plus your share of any forfeited stakes!
+            </p>
           </div>
           <button
             type="button"
-            className="btn btn--gold-glow btn--lg btn--full"
+            className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
             onClick={handleJoin}
           >
             Stake {challenge.stake_nim} NIM & Join Challenge 🔥
@@ -445,20 +500,56 @@ export function ChallengeDetailScreen({
           <span className="forfeit-banner__icon">💀</span>
           <div className="forfeit-banner__text">
             <h3>Stake Forfeited</h3>
-            <p>You missed a daily check-in. Your stake went to the finishers prize pool.</p>
+            <p>
+              A daily check-in was missed. Your {participant?.stake_amount || challenge.stake_nim} NIM stake
+              has been transferred to the finishers prize pool. Start a new challenge to get back on track!
+            </p>
           </div>
         </section>
       )}
+
+      {/* Accountability & Financial Mechanics Card */}
+      <section className="mechanics-info-card">
+        <h3 className="mechanics-info-card__title">Stakes & Rewards Structure</h3>
+        <div className="mechanics-info-grid">
+          <div className="mechanics-info-item">
+            <span className="mechanics-info-item__icon">🛡️</span>
+            <div>
+              <strong>100% Stake Protection</strong>
+              <p>Check in once every 24 hours. Complete the challenge to get 100% of your stake back.</p>
+            </div>
+          </div>
+          <div className="mechanics-info-item">
+            <span className="mechanics-info-item__icon">🏆</span>
+            <div>
+              <strong>Quitter Pool Bonus</strong>
+              <p>
+                {stats?.quittersCount || 0} participants have forfeited {stats?.totalPool || 0} NIM.
+                Finishers share this pool equally at challenge completion.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Streak Calendar Heatmap */}
       {calendarData.length > 0 && (
         <section className="calendar-section">
           <div className="calendar-section__header">
-            <h2>Streak Calendar</h2>
+            <div>
+              <h2>Streak Calendar</h2>
+              <p className="calendar-section__subtitle">Daily habit consistency timeline</p>
+            </div>
             <div className="calendar-legend">
-              <span className="legend-item"><span className="legend-box legend-box--done"></span> Done</span>
-              <span className="legend-item"><span className="legend-box legend-box--missed"></span> Missed</span>
-              <span className="legend-item"><span className="legend-box legend-box--future"></span> Future</span>
+              <span className="legend-item">
+                <span className="legend-box legend-box--done"></span> Done
+              </span>
+              <span className="legend-item">
+                <span className="legend-box legend-box--today"></span> Today
+              </span>
+              <span className="legend-item">
+                <span className="legend-box legend-box--missed"></span> Missed
+              </span>
             </div>
           </div>
 
@@ -478,6 +569,7 @@ export function ChallengeDetailScreen({
                 >
                   <span className="cal-day-cell__num">{day.dayNumber}</span>
                   {day.checkedIn && <span className="cal-day-cell__check">✓</span>}
+                  {day.status === "missed" && <span className="cal-day-cell__missed-mark">✕</span>}
                 </div>
               );
             })}
@@ -488,9 +580,14 @@ export function ChallengeDetailScreen({
       {/* Challenge Leaderboard & Forfeits Pool */}
       <section className="leaderboard-section">
         <div className="leaderboard-section__header">
-          <h2>Participant Rankings</h2>
+          <div>
+            <h2>Participant Rankings</h2>
+            <p className="leaderboard-section__subtitle">
+              {leaderboard.length} streakers competing
+            </p>
+          </div>
           <span className="pool-tally">
-            🏆 Pool: <strong>{stats?.totalPool || 0} NIM</strong> ({stats?.quittersCount || 0} Quitters 💀)
+            🏆 Pool: <strong>{stats?.totalPool || 0} NIM</strong>
           </span>
         </div>
 

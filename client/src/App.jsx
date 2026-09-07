@@ -456,8 +456,10 @@ export default function App() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             myChallenges={myChallengesData.all}
+            myChallengesData={myChallengesData}
             globalStats={globalStats}
             onSelectChallenge={handleSelectChallenge}
+            onCheckin={handleCheckin}
           />
         )}
 

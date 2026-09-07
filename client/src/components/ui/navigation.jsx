@@ -71,25 +71,12 @@ export function AppBottomNav({ screen, onNavigate, walletAddress, onConnectWalle
           <button
             key={item.id}
             type="button"
-            className={`bottom-nav__item ${isActive ? "bottom-nav__item--active" : ""}`}
+            className={`bottom-nav__item ${isActive ? "bottom-nav__item--active" : ""} ${isLocked ? "bottom-nav__item--locked" : ""}`}
             onClick={handleClick}
-            style={{
-              position: "relative",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "0.55rem 0.25rem",
-              fontSize: "0.72rem",
-              fontWeight: isActive ? 800 : 600,
-              opacity: isLocked ? 0.45 : 1,
-              cursor: "pointer",
-              transition: "opacity 0.2s ease, transform 0.15s ease",
-            }}
             title={isLocked ? "Connect Nimiq Wallet to unlock" : item.label}
           >
             <NavIcon name={item.icon} />
-            <span className="bottom-nav__label" style={{ marginTop: "3px" }}>
+            <span className="bottom-nav__label">
               {item.label}
             </span>
           </button>

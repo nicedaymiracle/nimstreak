@@ -62,6 +62,7 @@ export function ProfileScreen({
 
   return (
     <div className="screen-container profile-screen">
+      {/* Profile Header Card */}
       <header className="profile-header-card">
         <div className="profile-avatar-wrap">
           <NimiqIdenticon address={walletAddress} size={88} />
@@ -79,16 +80,18 @@ export function ProfileScreen({
                 maxLength={25}
                 autoFocus
               />
-              <button type="submit" className="btn btn--gold btn--sm" disabled={saving}>
-                Save
-              </button>
-              <button
-                type="button"
-                className="btn btn--ghost btn--sm"
-                onClick={() => setEditing(false)}
-              >
-                Cancel
-              </button>
+              <div className="profile-name-edit-actions">
+                <button type="submit" className="btn btn--gold btn--sm" disabled={saving}>
+                  {saving ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setEditing(false)}
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           ) : (
             <div className="profile-name-row">
@@ -102,16 +105,24 @@ export function ProfileScreen({
                   setNameInput(profile.display_name || "");
                   setEditing(true);
                 }}
-                title="Edit name"
+                title="Edit display name"
+                aria-label="Edit display name"
               >
                 ✏️
               </button>
             </div>
           )}
 
-          <div className="profile-address-pill" onClick={handleCopyAddress}>
-            <span>{shortenWalletAddress(walletAddress, 6, 6)}</span>
-            <span className="copy-badge">{copied ? "Copied!" : "📋"}</span>
+          <div
+            className="profile-address-pill"
+            onClick={handleCopyAddress}
+            role="button"
+            tabIndex={0}
+            title="Click to copy stable profile address"
+          >
+            <span className="profile-address-tag">Profile ID:</span>
+            <span className="profile-address-val">{shortenWalletAddress(walletAddress, 6, 6)}</span>
+            <span className="copy-badge">{copied ? "Copied! ✅" : "📋"}</span>
           </div>
         </div>
 
@@ -128,7 +139,10 @@ export function ProfileScreen({
 
       {/* Lifetime Stats Matrix */}
       <section className="profile-matrix-section">
-        <h2 className="section-title">Habit Metrics</h2>
+        <div className="section-header-compact">
+          <h2 className="section-title">Habit Performance Metrics</h2>
+          <span className="section-subtitle">Verified on-chain streak history</span>
+        </div>
         <div className="matrix-grid">
           <div className="matrix-card">
             <span className="matrix-card__icon">🔥</span>
@@ -168,12 +182,18 @@ export function ProfileScreen({
         </div>
       </section>
 
-      {/* Badges */}
+      {/* Earned Badges */}
       <section className="profile-badges-section">
-        <h2 className="section-title">Earned Badges ({badges.length})</h2>
+        <div className="section-header-compact">
+          <h2 className="section-title">Earned Badges ({badges.length})</h2>
+          <span className="section-subtitle">Milestone achievements</span>
+        </div>
         <div className="profile-badges-grid">
           {badges.length === 0 ? (
-            <p className="empty-sub">No badges earned yet. Complete streaks to unlock badges!</p>
+            <div className="empty-sub-card">
+              <span className="empty-sub-card__icon">⭐</span>
+              <p>No badges earned yet. Complete your first streak milestone to unlock achievements!</p>
+            </div>
           ) : (
             badges.map((b) => {
               const def = BADGE_DEFINITIONS[b.badge_type] || {
@@ -186,8 +206,9 @@ export function ProfileScreen({
                   <span className="profile-badge-card__emoji">{def.emoji}</span>
                   <div className="profile-badge-card__info">
                     <span className="profile-badge-card__title">{def.title}</span>
+                    <span className="profile-badge-card__desc">{def.description}</span>
                     <span className="profile-badge-card__date">
-                      {new Date(b.earned_at).toLocaleDateString()}
+                      Unlocked: {new Date(b.earned_at).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
@@ -200,13 +221,18 @@ export function ProfileScreen({
       {/* Recent Activity */}
       {recent.length > 0 && (
         <section className="profile-recent-section">
-          <h2 className="section-title">Recent Challenge Activity</h2>
+          <div className="section-header-compact">
+            <h2 className="section-title">Recent Challenge Activity</h2>
+            <span className="section-subtitle">Latest habits participated in</span>
+          </div>
           <div className="recent-list">
             {recent.map((r) => (
               <div
                 key={r.id || r.challenge_id}
                 className="recent-row"
                 onClick={() => onSelectChallenge(r.challenge_id)}
+                role="button"
+                tabIndex={0}
               >
                 <div className="recent-row__info">
                   <h4>{r.title}</h4>
@@ -214,7 +240,15 @@ export function ProfileScreen({
                     Streak: 🔥 {r.current_streak} days · {r.stake_amount} NIM
                   </span>
                 </div>
-                <span className="recent-row__status">
+                <span
+                  className={`recent-row__status ${
+                    r.status === "failed"
+                      ? "recent-row__status--forfeit"
+                      : r.status === "completed"
+                      ? "recent-row__status--won"
+                      : "recent-row__status--active"
+                  }`}
+                >
                   {r.status === "failed" ? "💀 Forfeited" : r.status === "completed" ? "🏆 Won" : "🔥 Active"}
                 </span>
               </div>

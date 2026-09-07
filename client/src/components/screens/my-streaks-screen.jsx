@@ -37,6 +37,7 @@ export function MyStreaksScreen({
   const profile = profileData?.profile || {};
 
   const currentList = tab === "active" ? activeList : tab === "completed" ? completedList : failedList;
+  const todayStr = new Date().toISOString().split("T")[0];
 
   return (
     <div className="screen-container my-streaks-screen">
@@ -69,7 +70,10 @@ export function MyStreaksScreen({
       {/* Badges Collection Rack */}
       <section className="badges-rack-section">
         <div className="badges-rack-header">
-          <h2>Badges & Achievements</h2>
+          <div>
+            <h2>Badges & Achievements</h2>
+            <p className="badges-rack-subtitle">Consistency milestones unlocked</p>
+          </div>
           <span className="badge-count-tag">{badges.length} Unlocked</span>
         </div>
 
@@ -93,10 +97,12 @@ export function MyStreaksScreen({
         </div>
       </section>
 
-      {/* Tabs */}
-      <div className="challenge-tabs-nav" role="tablist">
+      {/* Tabs Navigation */}
+      <div className="challenge-tabs-nav" role="tablist" aria-label="Streak categories">
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "active"}
           className={`tab-btn ${tab === "active" ? "tab-btn--active" : ""}`}
           onClick={() => setTab("active")}
         >
@@ -104,6 +110,8 @@ export function MyStreaksScreen({
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "completed"}
           className={`tab-btn ${tab === "completed" ? "tab-btn--active" : ""}`}
           onClick={() => setTab("completed")}
         >
@@ -111,6 +119,8 @@ export function MyStreaksScreen({
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "failed"}
           className={`tab-btn ${tab === "failed" ? "tab-btn--active" : ""}`}
           onClick={() => setTab("failed")}
         >
@@ -122,49 +132,122 @@ export function MyStreaksScreen({
       <main className="my-challenges-list">
         {currentList.length === 0 ? (
           <div className="empty-state">
-            <span className="empty-state__icon">{tab === "active" ? "🎯" : tab === "completed" ? "🏆" : "🛡️"}</span>
-            <h3>No {tab} challenges</h3>
+            <span className="empty-state__icon">
+              {tab === "active" ? "🎯" : tab === "completed" ? "🏆" : "🛡️"}
+            </span>
+            <h3>
+              {tab === "active"
+                ? "No active streaks yet"
+                : tab === "completed"
+                ? "No completed streaks yet"
+                : "No forfeited streaks"}
+            </h3>
             <p>
               {tab === "active"
-                ? "You have no active challenges right now. Join or create one!"
+                ? "Put NIM behind your daily habits and start your first streak today!"
                 : tab === "completed"
-                ? "Finish all daily check-ins on a challenge to win rewards!"
-                : "Great job! You haven't forfeited any stakes."}
+                ? "Finish all daily check-ins on a challenge to reclaim your stake and win bonus rewards."
+                : "Awesome discipline! You haven't forfeited any stakes."}
             </p>
             {tab === "active" && (
-              <button
-                type="button"
-                className="btn btn--gold btn--sm"
-                onClick={() => onNavigate("browse")}
-              >
-                Find a Challenge
-              </button>
+              <div className="empty-state-actions">
+                <button
+                  type="button"
+                  className="btn btn--gold btn--md"
+                  onClick={() => onNavigate("create-challenge")}
+                >
+                  + Create Challenge
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--md"
+                  onClick={() => onNavigate("browse")}
+                >
+                  Browse Challenges
+                </button>
+              </div>
+            )}
+            {tab === "completed" && activeList.length > 0 && (
+              <div className="empty-state-actions">
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--md"
+                  onClick={() => setTab("active")}
+                >
+                  View Active Streaks ({activeList.length})
+                </button>
+              </div>
             )}
           </div>
         ) : (
-          currentList.map((item) => (
-            <article
-              key={item.id || item.challenge_id}
-              className="my-challenge-item-card"
-              onClick={() => onSelectChallenge(item.challenge_id || item.id)}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="my-challenge-item-card__top">
-                <CategoryBadge category={item.category} />
-                <span className="item-streak-badge">
-                  {tab === "failed" ? "💀 Lost" : `🔥 Day ${item.current_streak || 1}/${item.duration_days || 30}`}
-                </span>
-              </div>
+          currentList.map((item) => {
+            const streak = item.current_streak || 0;
+            const duration = item.duration_days || 30;
+            const progressPercent = Math.min(100, Math.round((streak / duration) * 100));
+            const stake = item.stake_amount || item.challenge_stake || 0;
+            const isTodayChecked =
+              item.last_checkin_at &&
+              new Date(item.last_checkin_at).toISOString().split("T")[0] === todayStr;
 
-              <h3 className="my-challenge-item-card__title">{item.title}</h3>
+            return (
+              <article
+                key={item.id || item.challenge_id}
+                className="my-challenge-item-card"
+                onClick={() => onSelectChallenge(item.challenge_id || item.id)}
+                role="button"
+                tabIndex={0}
+              >
+                <div className="my-challenge-item-card__top">
+                  <div className="my-challenge-card-badge-row">
+                    <CategoryBadge category={item.category} />
+                    {tab === "active" && (
+                      <span
+                        className={`mini-status-pill ${
+                          isTodayChecked ? "mini-status-pill--checked" : "mini-status-pill--pending"
+                        }`}
+                      >
+                        {isTodayChecked ? "✓ Checked in today" : "⏳ Check-in needed"}
+                      </span>
+                    )}
+                  </div>
+                  <span className="item-streak-badge">
+                    {tab === "failed"
+                      ? "💀 Lost"
+                      : tab === "completed"
+                      ? `🏆 ${duration}d Won`
+                      : `🔥 Day ${streak}/${duration}`}
+                  </span>
+                </div>
 
-              <div className="my-challenge-item-card__footer">
-                <span className="footer-stake">Stake: {item.stake_amount || item.challenge_stake} NIM</span>
-                <span className="footer-link">Open Details →</span>
-              </div>
-            </article>
-          ))
+                <h3 className="my-challenge-item-card__title">{item.title}</h3>
+
+                {/* Progress bar on active / completed */}
+                {tab !== "failed" && (
+                  <div className="my-challenge-item-card__progress">
+                    <div className="streak-progress-bar">
+                      <div
+                        className="streak-progress-fill"
+                        style={{ width: `${tab === "completed" ? 100 : progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="my-challenge-item-card__footer">
+                  <span className="footer-stake">
+                    {tab === "failed"
+                      ? `Forfeited: ${stake} NIM`
+                      : tab === "completed"
+                      ? `Protected: ${stake} NIM`
+                      : `Stake: ${stake} NIM`}
+                  </span>
+                  <span className="footer-link">
+                    {tab === "active" ? "Continue streak →" : "View Details →"}
+                  </span>
+                </div>
+              </article>
+            );
+          })
         )}
       </main>
     </div>
