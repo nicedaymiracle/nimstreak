@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { CATEGORIES, CategoryBadge, StatusIndicator } from "../ui/streak-stickers.jsx";
 
 export function BrowseScreen({
@@ -8,12 +8,19 @@ export function BrowseScreen({
   onJoinByCode,
   walletAddress,
   onConnectWallet,
+  initialInviteCode = "",
 }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [inviteCodeInput, setInviteCodeInput] = useState("");
+  const [inviteCodeInput, setInviteCodeInput] = useState(initialInviteCode || "");
   const [codeSubmitting, setCodeSubmitting] = useState(false);
   const [codeError, setCodeError] = useState("");
+
+  useEffect(() => {
+    if (initialInviteCode) {
+      setInviteCodeInput(initialInviteCode);
+    }
+  }, [initialInviteCode]);
 
   const filteredChallenges = useMemo(() => {
     return challenges.filter((c) => {

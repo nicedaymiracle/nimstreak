@@ -417,17 +417,13 @@ export function HomeScreen({
         <section className="home-onboarding">
           <div className="hero-badge">
             <span className="hero-badge__dot"></span>
-            <span>Powered by Nimiq Blockchain</span>
+            <span>Powered by Nimiq</span>
           </div>
 
           <h1 className="onboarding-title">
             Build your streak. <br />
-            <span className="text-gold">Put NIM behind your commitment.</span>
+            <span className="text-gold">Stake NIM. Check in daily. Earn more when others quit.</span>
           </h1>
-          <p className="onboarding-subtitle">
-            Lock a small NIM stake to hold yourself accountable. Check in daily to get your stake back
-            plus a bonus from anyone who dropped out.
-          </p>
 
           <div className="onboarding-steps-grid">
             <div className="onboarding-step-card">

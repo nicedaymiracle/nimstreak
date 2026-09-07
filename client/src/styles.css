@@ -3700,3 +3700,413 @@ body {
   z-index: 10;
   background: linear-gradient(160deg, #182038 0%, #0D1322 100%);
 }
+
+/* ==========================================================================
+   Create Challenge Screen Polish (Mobile First, Premium Hierarchy)
+   ========================================================================== */
+.create-screen {
+  padding-bottom: 2rem;
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.create-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.15rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.create-section:focus-within {
+  border-color: rgba(233, 178, 19, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.create-section-header,
+.create-section__header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.create-section-badge,
+.create-section__step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(233, 178, 19, 0.2), rgba(229, 133, 0, 0.15));
+  border: 1px solid rgba(233, 178, 19, 0.35);
+  color: var(--gold-light);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+}
+
+.create-section-title,
+.create-section__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.create-section-sub,
+.create-section__desc {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+  line-height: 1.4;
+}
+
+/* Category Grid Polish */
+.category-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+@media (min-width: 440px) {
+  .category-select-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.category-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.5rem;
+  min-height: 44px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s ease;
+}
+
+.category-select-btn--active {
+  background: rgba(233, 178, 19, 0.15);
+  border-color: var(--gold-primary);
+  color: var(--gold-primary);
+  font-weight: 700;
+}
+
+/* Duration Grid */
+.duration-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+@media (min-width: 480px) {
+  .duration-selector {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* Stake Preview Banner */
+.stake-preview-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: linear-gradient(135deg, rgba(233, 178, 19, 0.08), rgba(229, 133, 0, 0.04));
+  border: 1px solid rgba(233, 178, 19, 0.2);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.stake-preview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.2rem;
+}
+
+.stake-preview-lbl {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.stake-preview-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--gold-light);
+}
+
+.stake-preview-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border-subtle);
+}
+
+/* Section C: Challenge Types */
+.create-types-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+@media (min-width: 460px) {
+  .create-types-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.create-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 0.85rem;
+  min-height: 48px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.create-type-card:hover {
+  border-color: rgba(233, 178, 19, 0.4);
+}
+
+.create-type-card--active {
+  background: rgba(233, 178, 19, 0.12);
+  border-color: var(--gold-primary);
+  box-shadow: 0 0 12px rgba(233, 178, 19, 0.15);
+}
+
+.create-type-icon {
+  font-size: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.create-type-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.2rem;
+}
+
+.create-type-card--active .create-type-name {
+  color: var(--gold-light);
+}
+
+.create-type-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Review / Summary Bottom Area */
+.create-summary-card {
+  background: linear-gradient(145deg, #1A223B 0%, #101626 100%);
+  border: 1px solid rgba(233, 178, 19, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.create-summary-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.create-summary-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  color: var(--gold-primary);
+  background: rgba(233, 178, 19, 0.15);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+}
+
+.create-summary-text {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.create-summary-desc {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin: 0.25rem 0;
+}
+
+.create-summary-sub {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.btn--create-cta,
+.create-submit-btn {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  min-height: 52px;
+}
+
+/* ==========================================================================
+   Share Challenge & Deep Links
+   ========================================================================== */
+.share-challenge-card {
+  background: linear-gradient(135deg, rgba(233, 178, 19, 0.08) 0%, rgba(13, 19, 34, 0.95) 100%);
+  border: 1px solid rgba(233, 178, 19, 0.3);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.share-challenge-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.share-challenge-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--gold-light);
+  letter-spacing: -0.01em;
+}
+
+.share-challenge-sub {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.share-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.share-btn {
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-color: rgba(233, 178, 19, 0.35);
+  background: rgba(233, 178, 19, 0.12);
+  color: var(--gold-light);
+  white-space: nowrap;
+}
+
+.share-btn:hover {
+  background: rgba(233, 178, 19, 0.22);
+  border-color: var(--gold-primary);
+}
+
+.share-invite-code-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.65rem;
+  min-height: 44px;
+}
+
+.share-code-text {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.share-code-text strong {
+  color: var(--gold-light);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.05em;
+  font-size: 0.82rem;
+}
+
+.share-copy-code-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s ease;
+  min-height: 32px;
+}
+
+.share-copy-code-btn:hover {
+  border-color: var(--gold-primary);
+  color: var(--gold-primary);
+}
+
+.share-feedback-pill {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  background: rgba(46, 204, 113, 0.12);
+  border: 1px solid rgba(46, 204, 113, 0.25);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  width: fit-content;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Welcome screen invite deep link notice */
+.invite-notice-pill {
+  background: linear-gradient(135deg, rgba(233, 178, 19, 0.15) 0%, rgba(229, 133, 0, 0.1) 100%);
+  border: 1px solid rgba(233, 178, 19, 0.4);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  text-align: center;
+  line-height: 1.35;
+}

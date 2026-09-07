@@ -82,220 +82,244 @@ export function CreateChallengeScreen({
       <form onSubmit={handleSubmit} className="create-form">
         {formError && <div className="form-banner form-banner--error">{formError}</div>}
 
-        {/* Title & Description */}
-        <div className="form-group">
-          <label className="form-label" htmlFor="challenge-title">
-            Challenge Goal <span className="req">*</span>
-          </label>
-          <input
-            id="challenge-title"
-            type="text"
-            className="form-input"
-            placeholder="e.g. 30 Days of 5 AM Gym Routine"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={80}
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label" htmlFor="challenge-desc">
-            Rules & Description
-          </label>
-          <textarea
-            id="challenge-desc"
-            className="form-textarea"
-            placeholder="Explain what counts as a completed daily check-in..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            maxLength={300}
-          />
-        </div>
-
-        {/* Category Picker */}
-        <div className="form-group">
-          <label className="form-label">Category</label>
-          <div className="cat-selector-grid">
-            {CATEGORIES.filter((c) => c.id !== "all").map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                className={`cat-select-btn ${category === cat.id ? "cat-select-btn--active" : ""}`}
-                onClick={() => setCategory(cat.id)}
-              >
-                <span className="cat-select-btn__emoji">{cat.emoji}</span>
-                <span className="cat-select-btn__label">{cat.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Challenge Mode */}
-        <div className="form-group">
-          <label className="form-label">Game Mode</label>
-          <div className="mode-toggle-group">
-            <button
-              type="button"
-              className={`mode-btn ${type === "solo" ? "mode-btn--active" : ""}`}
-              onClick={() => setType("solo")}
-            >
-              <span className="mode-btn__icon">👤</span>
-              <span className="mode-btn__title">Solo</span>
-              <span className="mode-btn__sub">You vs yourself</span>
-            </button>
-
-            <button
-              type="button"
-              className={`mode-btn ${type === "group" ? "mode-btn--active" : ""}`}
-              onClick={() => setType("group")}
-            >
-              <span className="mode-btn__icon">👥</span>
-              <span className="mode-btn__title">Group</span>
-              <span className="mode-btn__sub">Invite code</span>
-            </button>
-
-            <button
-              type="button"
-              className={`mode-btn ${type === "public" ? "mode-btn--active" : ""}`}
-              onClick={() => setType("public")}
-            >
-              <span className="mode-btn__icon">🌐</span>
-              <span className="mode-btn__title">Public</span>
-              <span className="mode-btn__sub">Open to all</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Duration Selection */}
-        <div className="form-group">
-          <label className="form-label">Challenge Duration</label>
-          <div className="duration-grid">
-            {DURATION_OPTIONS.map((days) => (
-              <button
-                key={days}
-                type="button"
-                className={`duration-pill ${durationDays === days ? "duration-pill--active" : ""}`}
-                onClick={() => setDurationDays(days)}
-              >
-                {days} Days
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Stake Amount */}
-        <div className="form-group">
-          <div className="form-label-row">
-            <label className="form-label" htmlFor="stake-input">
-              Your NIM Stake
-            </label>
-            <span className="form-hint">Min {MIN_STAKE_NIM} NIM</span>
-          </div>
-
-          <div className="stake-input-wrap">
-            <input
-              id="stake-input"
-              type="number"
-              className="form-input form-input--stake"
-              step="0.1"
-              min={MIN_STAKE_NIM}
-              max={1000}
-              value={stakeNim}
-              onChange={(e) => setStakeNim(parseFloat(e.target.value) || 0)}
-            />
-            <span className="stake-currency">NIM</span>
-          </div>
-
-          <div className="stake-quick-chips">
-            {[0.5, 1.0, 2.0, 5.0, 10.0].map((amt) => (
-              <button
-                key={amt}
-                type="button"
-                className="stake-chip"
-                onClick={() => setStakeNim(amt)}
-              >
-                +{amt}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Check-in Method */}
-        <div className="form-group">
-          <label className="form-label">Check-in Proof Type</label>
-          <div className="checkin-type-grid">
-            <button
-              type="button"
-              className={`checkin-type-btn ${checkinType === "tap" ? "checkin-type-btn--active" : ""}`}
-              onClick={() => setCheckinType("tap")}
-            >
-              <span className="checkin-type-btn__icon">⚡</span>
-              <span>1-Tap Check-in</span>
-            </button>
-            <button
-              type="button"
-              className={`checkin-type-btn ${checkinType === "text" ? "checkin-type-btn--active" : ""}`}
-              onClick={() => setCheckinType("text")}
-            >
-              <span className="checkin-type-btn__icon">📝</span>
-              <span>Text Journal</span>
-            </button>
-            <button
-              type="button"
-              className={`checkin-type-btn ${checkinType === "photo" ? "checkin-type-btn--active" : ""}`}
-              onClick={() => setCheckinType("photo")}
-            >
-              <span className="checkin-type-btn__icon">📸</span>
-              <span>Photo Proof</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Payout Preview Card */}
-        <div className="payout-preview-card">
-          <div className="payout-preview-card__header">
-            <span className="payout-preview-card__icon">💰</span>
-            <h4>Estimated Reward Calculation</h4>
-          </div>
-
-          <div className="preview-breakdown">
-            <div className="preview-row">
-              <span>Your Stake Locked:</span>
-              <span className="text-bold">{stakeNim.toFixed(2)} NIM</span>
+        {/* ── SECTION A — CHALLENGE DETAILS ────────────────────────── */}
+        <section className="create-section" aria-labelledby="section-a-heading">
+          <div className="create-section-header">
+            <span className="create-section-badge" aria-hidden="true">A</span>
+            <div>
+              <h2 id="section-a-heading" className="create-section-title">Challenge Details</h2>
+              <p className="create-section-sub">Define your daily habit goal and category</p>
             </div>
-            {type !== "solo" && (
-              <>
-                <div className="preview-row">
-                  <span>Est. Forfeit Bonus:</span>
-                  <span className="text-gold">+{estimatedBonus.toFixed(2)} NIM</span>
-                </div>
-                <div className="preview-divider" />
-                <div className="preview-row preview-row--total">
-                  <span>Est. Finisher Payout:</span>
-                  <span className="text-gold-bright text-bold">
-                    {estimatedTotalReturn.toFixed(2)} NIM 💎
-                  </span>
-                </div>
-              </>
-            )}
-            {type === "solo" && (
-              <div className="preview-note">
-                Solo challenges return 100% of your {stakeNim.toFixed(2)} NIM upon completing all {durationDays} days.
-              </div>
-            )}
           </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="challenge-title">
+              Challenge Goal <span className="req">*</span>
+            </label>
+            <input
+              id="challenge-title"
+              type="text"
+              className="form-input"
+              placeholder="e.g. 30 Days of 5 AM Gym Routine"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={80}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="challenge-desc">
+              Rules & Description
+            </label>
+            <textarea
+              id="challenge-desc"
+              className="form-textarea"
+              placeholder="Explain what counts as a completed daily check-in..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              maxLength={300}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Category</label>
+            <div className="cat-selector-grid">
+              {CATEGORIES.filter((c) => c.id !== "all").map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`cat-select-btn ${category === cat.id ? "cat-select-btn--active" : ""}`}
+                  onClick={() => setCategory(cat.id)}
+                >
+                  <span className="cat-select-btn__emoji">{cat.emoji}</span>
+                  <span className="cat-select-btn__label">{cat.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Check-in Proof Type</label>
+            <div className="checkin-type-grid">
+              <button
+                type="button"
+                className={`checkin-type-btn ${checkinType === "tap" ? "checkin-type-btn--active" : ""}`}
+                onClick={() => setCheckinType("tap")}
+              >
+                <span className="checkin-type-btn__icon">⚡</span>
+                <span>1-Tap Check-in</span>
+              </button>
+              <button
+                type="button"
+                className={`checkin-type-btn ${checkinType === "text" ? "checkin-type-btn--active" : ""}`}
+                onClick={() => setCheckinType("text")}
+              >
+                <span className="checkin-type-btn__icon">📝</span>
+                <span>Text Journal</span>
+              </button>
+              <button
+                type="button"
+                className={`checkin-type-btn ${checkinType === "photo" ? "checkin-type-btn--active" : ""}`}
+                onClick={() => setCheckinType("photo")}
+              >
+                <span className="checkin-type-btn__icon">📸</span>
+                <span>Photo Proof</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ── SECTION B — COMMITMENT ────────────────────────────────── */}
+        <section className="create-section" aria-labelledby="section-b-heading">
+          <div className="create-section-header">
+            <span className="create-section-badge" aria-hidden="true">B</span>
+            <div>
+              <h2 id="section-b-heading" className="create-section-title">Commitment</h2>
+              <p className="create-section-sub">Duration and skin in the game</p>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Streak Duration</label>
+            <div className="duration-grid">
+              {DURATION_OPTIONS.map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  className={`duration-pill ${durationDays === days ? "duration-pill--active" : ""}`}
+                  onClick={() => setDurationDays(days)}
+                >
+                  {days} Days
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <div className="form-label-row">
+              <label className="form-label" htmlFor="stake-input">
+                Your NIM Stake
+              </label>
+              <span className="form-hint">Min {MIN_STAKE_NIM} NIM</span>
+            </div>
+
+            <div className="stake-input-wrap">
+              <input
+                id="stake-input"
+                type="number"
+                className="form-input form-input--stake"
+                step="0.1"
+                min={MIN_STAKE_NIM}
+                max={1000}
+                value={stakeNim}
+                onChange={(e) => setStakeNim(parseFloat(e.target.value) || 0)}
+              />
+              <span className="stake-currency">NIM</span>
+            </div>
+
+            <div className="stake-quick-chips">
+              {[0.5, 1.0, 2.0, 5.0, 10.0].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  className={`stake-chip ${stakeNim === amt ? "stake-chip--active" : ""}`}
+                  onClick={() => setStakeNim(amt)}
+                >
+                  {amt} NIM
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* NIM Stake Preview Banner */}
+          <div className="stake-preview-banner">
+            <div className="stake-preview-banner__icon">💎</div>
+            <div className="stake-preview-banner__info">
+              <span className="stake-preview-banner__label">Locked on-chain:</span>
+              <span className="stake-preview-banner__val">{Number(stakeNim || 0).toFixed(1)} NIM</span>
+            </div>
+            <span className="stake-preview-banner__tag">100% Refundable on Completion</span>
+          </div>
+        </section>
+
+        {/* ── SECTION C — CHALLENGE TYPE ────────────────────────────── */}
+        <section className="create-section" aria-labelledby="section-c-heading">
+          <div className="create-section-header">
+            <span className="create-section-badge" aria-hidden="true">C</span>
+            <div>
+              <h2 id="section-c-heading" className="create-section-title">Challenge Type</h2>
+              <p className="create-section-sub">Choose who can participate in this streak</p>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <div className="mode-toggle-group">
+              <button
+                type="button"
+                className={`mode-btn ${type === "solo" ? "mode-btn--active" : ""}`}
+                onClick={() => setType("solo")}
+              >
+                <span className="mode-btn__icon">👤</span>
+                <span className="mode-btn__title">Solo</span>
+                <span className="mode-btn__sub">You vs yourself</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mode-btn ${type === "public" ? "mode-btn--active" : ""}`}
+                onClick={() => setType("public")}
+              >
+                <span className="mode-btn__icon">🌐</span>
+                <span className="mode-btn__title">Public</span>
+                <span className="mode-btn__sub">Open community</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mode-btn ${type === "group" ? "mode-btn--active" : ""}`}
+                onClick={() => setType("group")}
+              >
+                <span className="mode-btn__icon">👥</span>
+                <span className="mode-btn__title">Group</span>
+                <span className="mode-btn__sub">Invite code only</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ── REVIEW / SUMMARY AREA ─────────────────────────────────── */}
+        <div className="create-summary-card">
+          <div className="create-summary-badge-row">
+            <span className="create-summary-metric">
+              ⏱️ {durationDays} Days · 💎 {Number(stakeNim || 0).toFixed(1)} NIM stake
+            </span>
+            <span className="create-summary-type-tag">
+              {type === "solo" ? "👤 Solo Mode" : type === "group" ? "👥 Group Mode" : "🌐 Public Mode"}
+            </span>
+          </div>
+
+          <p className="create-summary-desc">
+            Finish your streak to reclaim your {Number(stakeNim || 0).toFixed(1)} NIM stake
+            {type !== "solo" ? " + eligible bonus from the quitter pool." : "."}
+          </p>
+
+          <p className="create-summary-sub">
+            {type === "solo"
+              ? "Solo habit challenges return 100% of your stake upon completing all daily check-ins."
+              : "Finishers share eligible forfeited stakes after the 10% treasury fee. Your potential bonus depends on participant completion rate."}
+          </p>
         </div>
 
-        {/* Submit */}
+        {/* Primary CTA */}
         <div className="form-actions">
           <button
             type="submit"
-            className="btn btn--gold-glow btn--lg btn--full"
+            className="btn btn--gold-glow btn--lg btn--full btn--create-cta"
             disabled={submitting}
           >
-            {submitting ? "Confirming Nimiq Stake..." : `Stake ${stakeNim} NIM & Start Challenge 🔥`}
+            {submitting ? "Confirming in Nimiq Wallet..." : "Create Challenge →"}
           </button>
         </div>
       </form>

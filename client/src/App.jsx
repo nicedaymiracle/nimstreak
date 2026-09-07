@@ -24,6 +24,26 @@ export default function App() {
   const [globalStats, setGlobalStats] = useState(null);
   const [toastMessage, setToastMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [initialInviteCode, setInitialInviteCode] = useState("");
+  const [pendingChallengeId, setPendingChallengeId] = useState(null);
+
+  // Parse share/invite deep link query parameters on initial mount
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const cId = params.get("challenge");
+      const inv = params.get("invite") || params.get("code");
+      if (cId) {
+        setPendingChallengeId(cId);
+        setSelectedChallengeId(cId);
+      }
+      if (inv) {
+        setInitialInviteCode(inv.toUpperCase());
+      }
+    } catch (err) {
+      console.warn("Could not parse invite link params:", err);
+    }
+  }, []);
 
   // Nimiq wallet hook
   const {
@@ -137,7 +157,14 @@ export default function App() {
     const addr = await connectWallet();
     if (addr) {
       showToast(`🔥 Signed in as ${shortenWalletAddress(addr, 4, 4)}`);
-      setScreen("home");
+      if (pendingChallengeId) {
+        setSelectedChallengeId(pendingChallengeId);
+        setScreen("challenge-detail");
+      } else if (initialInviteCode) {
+        setScreen("browse");
+      } else {
+        setScreen("home");
+      }
     }
   };
 
@@ -145,9 +172,24 @@ export default function App() {
     const formatted = setManualAddress(address);
     if (formatted) {
       showToast(`🔥 Connected as ${shortenWalletAddress(formatted, 4, 4)}`);
-      setScreen("home");
+      if (pendingChallengeId) {
+        setSelectedChallengeId(pendingChallengeId);
+        setScreen("challenge-detail");
+      } else if (initialInviteCode) {
+        setScreen("browse");
+      } else {
+        setScreen("home");
+      }
     }
   };
+
+  // If already authenticated and deep link was provided, navigate to destination
+  useEffect(() => {
+    if (walletAddress && pendingChallengeId) {
+      setSelectedChallengeId(pendingChallengeId);
+      setScreen("challenge-detail");
+    }
+  }, [walletAddress, pendingChallengeId]);
 
   // Navigate to single challenge detail
   const handleSelectChallenge = (id) => {
@@ -401,6 +443,13 @@ export default function App() {
           onManualConnect={handleManualConnect}
           isConnecting={isConnecting}
           walletStatus={walletStatus}
+          inviteHint={
+            pendingChallengeId
+              ? "You have been invited to a challenge! Connect your wallet to join."
+              : initialInviteCode
+              ? `Invite code ${initialInviteCode} detected! Connect your wallet to join.`
+              : ""
+          }
         />
       </div>
     );
@@ -471,6 +520,7 @@ export default function App() {
             onJoinByCode={handleJoinByCode}
             walletAddress={walletAddress}
             onConnectWallet={handleSignIn}
+            initialInviteCode={initialInviteCode}
           />
         )}
 

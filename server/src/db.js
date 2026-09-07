@@ -282,7 +282,10 @@ export async function getBadges(walletAddress) {
 
 export async function awardBadge(walletAddress, badgeType, challengeId = null) {
   const norm = normalizeAddress(walletAddress);
-  const docId = `${norm}_${badgeType}_${challengeId || "global"}`;
+  // For milestone badges like first_challenge, ensure unique un-duplicated achievement
+  const docId = badgeType === "first_challenge"
+    ? `${norm}_first_challenge`
+    : `${norm}_${badgeType}_${challengeId || "global"}`;
   const badgeData = {
     id: docId,
     wallet_address: norm,
@@ -696,6 +699,7 @@ export async function addParticipant(challengeId, participantData) {
       );
 
       await batch.commit();
+      await awardBadge(normProfile, "first_challenge", challengeId);
       return fullPart;
     } catch (err) {
       console.warn("[firestore:addParticipant] error:", err.message);
@@ -713,6 +717,7 @@ export async function addParticipant(challengeId, participantData) {
     total_nim_staked: (prof.total_nim_staked || 0) + (Number(fullPart.stake_amount) || 0),
   });
 
+  await awardBadge(normProfile, "first_challenge", challengeId);
   return fullPart;
 }
 

@@ -5,6 +5,7 @@ export function WelcomeScreen({
   onSignIn,
   isConnecting = false,
   walletStatus = "",
+  inviteHint = "",
 }) {
   const [showDetails, setShowDetails] = useState(false);
 
@@ -24,6 +25,12 @@ export function WelcomeScreen({
             <h1 className="modal-title text-gold" style={{ fontSize: "1.7rem", marginBottom: "0.75rem" }}>
               Nimiq Wallet Sign-In
             </h1>
+
+            {inviteHint && (
+              <div className="invite-notice-pill">
+                <span>🔗 {inviteHint}</span>
+              </div>
+            )}
 
             <div className="notice-message-box">
               <p className="notice-primary-text">

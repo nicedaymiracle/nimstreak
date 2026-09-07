@@ -207,6 +207,42 @@ export function ChallengeDetailScreen({
     }
   };
 
+  const [shareFeedback, setShareFeedback] = useState("");
+
+  const handleShareChallenge = async () => {
+    const inviteCode = challengeData?.challenge?.invite_code;
+    const shareUrl = `${window.location.origin}/?challenge=${encodeURIComponent(challengeId)}${
+      inviteCode ? `&invite=${encodeURIComponent(inviteCode)}` : ""
+    }`;
+    const shareData = {
+      title: `Join my "${challengeData?.challenge?.title || "Habit"}" streak on NimStreak!`,
+      text: `Stake ${challengeData?.challenge?.stake_nim || 0.5} NIM and build this daily habit with me.${
+        inviteCode ? ` Invite code: ${inviteCode}` : ""
+      }`,
+      url: shareUrl,
+    };
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        setShareFeedback("Shared successfully! 🚀");
+        setTimeout(() => setShareFeedback(""), 3000);
+        return;
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        console.debug("Web Share fallback notice:", err);
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareFeedback("Link copied! 📋");
+      setTimeout(() => setShareFeedback(""), 3000);
+    } catch (clipErr) {
+      console.warn("Could not copy link:", clipErr);
+    }
+  };
+
   const copyInvite = () => {
     if (challengeData?.challenge?.invite_code) {
       navigator.clipboard.writeText(challengeData.challenge.invite_code);
@@ -282,18 +318,39 @@ export function ChallengeDetailScreen({
 
         {challenge.description && <p className="detail-desc">{challenge.description}</p>}
 
-        {challenge.invite_code && (
-          <div
-            className="invite-code-pill"
-            onClick={copyInvite}
-            role="button"
-            tabIndex={0}
-            title="Click to copy invite code"
-          >
-            <span>🔑 Code: <strong>{challenge.invite_code}</strong></span>
-            <span className="invite-copy-label">{copiedInvite ? "Copied! ✅" : "Copy"}</span>
+        {/* Grow your streak / Invite friends */}
+        <div className="share-challenge-card">
+          <div className="share-challenge-info">
+            <span className="share-challenge-title">Grow your streak</span>
+            <span className="share-challenge-sub">Invite friends to join this challenge.</span>
           </div>
-        )}
+          <div className="share-actions-row">
+            <button
+              type="button"
+              className="btn btn--secondary share-btn"
+              onClick={handleShareChallenge}
+              title="Share challenge invitation link"
+            >
+              🔗 Share Challenge
+            </button>
+            {challenge.invite_code && (
+              <div className="share-invite-code-row">
+                <span className="share-code-text">Invite code: <strong>{challenge.invite_code}</strong></span>
+                <button
+                  type="button"
+                  className="share-copy-code-btn"
+                  onClick={copyInvite}
+                  title="Copy invite code"
+                >
+                  {copiedInvite ? "Copied! ✅" : "Copy"}
+                </button>
+              </div>
+            )}
+          </div>
+          {shareFeedback && (
+            <div className="share-feedback-pill">{shareFeedback}</div>
+          )}
+        </div>
 
         {/* 4 Prominent Stat Boxes Grid */}
         <div className="detail-stat-row">
@@ -522,10 +579,10 @@ export function ChallengeDetailScreen({
           <div className="mechanics-info-item">
             <span className="mechanics-info-item__icon">🏆</span>
             <div>
-              <strong>Quitter Pool Bonus</strong>
+              <strong>Potential Bonus</strong>
               <p>
-                {stats?.quittersCount || 0} participants have forfeited {stats?.totalPool || 0} NIM.
-                Finishers share this pool equally at challenge completion.
+                Finishers share eligible forfeited stakes after the 10% treasury fee.
+                Your bonus depends on how many participants complete the challenge.
               </p>
             </div>
           </div>
