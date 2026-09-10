@@ -717,7 +717,7 @@ export function SettingsScreen({ settings, onToggle, onBack }) {
                   <span style={{ color: "var(--ink-muted)", display: "block", fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700 }}>
                     Version
                   </span>
-                  <strong style={{ color: "var(--ink)" }}>NimWord v1.0.0</strong>
+                  <strong style={{ color: "var(--ink)" }}>NimStreak v1.0.0</strong>
                 </div>
                 <div>
                   <span style={{ color: "var(--ink-muted)", display: "block", fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700 }}>

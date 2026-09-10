@@ -8,8 +8,8 @@ export function SocialShareBar({ roomId, score, wordCount, className = "" }) {
     : window.location.href;
 
   const shareText = score
-    ? `🎮 I just scored ${score} points (${wordCount || 0} words) on NimWord! Race me on Nimiq: ${shareUrl}`
-    : `🏆 Join my NimWord game room on Nimiq and test your vocabulary speed! Play here: ${shareUrl}`;
+    ? `🔥 I am on a ${score}-day streak on NimStreak! Join my challenge on Nimiq: ${shareUrl}`
+    : `🏆 Join my habit streak challenge on NimStreak! Commit NIM, build consistency, and win rewards: ${shareUrl}`;
 
   const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
   const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`;

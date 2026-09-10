@@ -8,12 +8,16 @@ build/
 contracts/cache/
 contracts/artifacts/
 
-# Local reading copy of a built-in Claude Code skill - not project code
-.claude/skills/
+# AI agent & IDE local configuration — not needed by contributors
+.claude/
+.agents/
 SKILL.md
+skills-lock.json
+*.code-workspace
 
 # Firebase & Cloud Credentials
 *service-account*.json
+*firebase-adminsdk*.json
 service-account.json
 *.pem
 .env.*

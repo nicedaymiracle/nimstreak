@@ -1,5 +1,0 @@
-export const DAILY_LIMITS = {
-  MAX_PLAYS_PER_DAY: 1,
-  RETRY_TICKET_COST_NIM: "0.05",
-  COOLDOWN_HOURS: 24,
-};

@@ -1,5 +1,5 @@
 /**
- * Client-side username helper for NimWord player profiles.
+ * Client-side username helper for NimStreak player profiles.
  */
 
 import { getPlayerAlias } from "./ui-helpers.js";
