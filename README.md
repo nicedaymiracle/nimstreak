@@ -20,6 +20,7 @@
 </p>
 
 <p align="center">
+  <a href="#-about">About</a> •
   <a href="#-the-game-loop">Game Loop</a> •
   <a href="#-why-nimstreak-works">The Psychology</a> •
   <a href="#-how-it-works">How It Works</a> •
@@ -30,6 +31,12 @@
   <a href="#-financial-safety--security">Safety</a> •
   <a href="#-getting-started">Getting Started</a>
 </p>
+
+---
+
+## 📖 About
+
+**NimStreak** is a Nimiq-powered habit accountability Mini App that turns personal goals into high-stakes on-chain challenges. By staking real NIM, players put skin in the game to build daily consistency. Check in every day to keep your streak alive, protect your stake, and claim bonus rewards from the **Quitter Pool** funded by participants who quit.
 
 ---
 
