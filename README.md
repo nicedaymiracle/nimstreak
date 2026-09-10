@@ -23,6 +23,7 @@
   <a href="#-the-game-loop">Game Loop</a> •
   <a href="#-why-nimstreak-works">The Psychology</a> •
   <a href="#-how-it-works">How It Works</a> •
+  <a href="#-core-application-screens">App Screens</a> •
   <a href="#-reward-model--quitter-pool">Reward Economics</a> •
   <a href="#-game-features">Features</a> •
   <a href="#-architecture">Architecture</a> •
@@ -91,6 +92,101 @@ Open NimStreak once per day before midnight UTC and hit **"Check In"**. Add opti
 
 ### Step 5: Claim Your Rewards
 Survive the challenge to cross the finish line. Claim your prize directly back to your Nimiq address with a single tap.
+
+---
+
+## 📱 Core Application Screens
+
+Explore the visual design and interactive user journey of NimStreak:
+
+---
+
+### 1. 🌟 The Landing Page
+> *Floating habit universe and friction-free Web3 onboarding.*
+
+<p align="center">
+  <img src="docs/screenshots/landing-page.png" alt="NimStreak Landing Page" width="850" />
+</p>
+
+The **Landing Page** welcomes challengers into an interactive, gamified habit ecosystem:
+- **Floating Habit Canvas:** A lively animated background of ambient challenge cards (*"Wake Up at 6:00 AM"*, *"7 Days of Coding"*, *"50 Pushups Daily"*, *"Meditate Daily"*, *"Read 25 Pages"*, *"No Social Media"*) showcasing real habit commitments happening across the network.
+- **One-Tap Nimiq Pay Connection:** Powered by the `@nimiq/mini-app-sdk`, users can connect instantly inside the Nimiq Pay mobile app or standard Nimiq Hub browser extension. No seed phrases to enter or gas configurations needed.
+- **Interactive Onboarding Modal:** Newcomers can tap *"What is NimStreak? Learn More"* to view a step-by-step explainer breakdown of how staking, daily check-ins, and the Quitter Pool work before connecting.
+
+---
+
+### 2. ⚡ The Player Dashboard (Home)
+> *Your daily mission control center and habit launchpad.*
+
+<p align="center">
+  <img src="docs/screenshots/home-dashboard.png" alt="NimStreak Player Dashboard" width="850" />
+</p>
+
+The **Player Dashboard** serves as the central mission control once your wallet is connected:
+- **4-Step Habit Loop Quick Guide:** Directly reinforces the core discipline cycle—*Choose a Habit* ➔ *Stake NIM* ➔ *Check In Daily* ➔ *Finish Your Streak*.
+- **Instant Launch CTAs:**
+  - **Create your first challenge:** Configure custom streak goals, select duration (7, 14, 21, or 30 days), set custom stakes (0.5 to 100 NIM), and generate invite codes.
+  - **Browse challenges:** Dive straight into the community challenge catalog.
+- **Live Platform Activity Feed:** Real-time on-chain stats displaying active challengers, total NIM staked across active pots, and current streaks network-wide.
+
+---
+
+### 3. 🔍 Browse & Discover Challenges
+> *Explore community pots, filter by habit category, or enter VIP invite codes.*
+
+<p align="center">
+  <img src="docs/screenshots/browse-challenges.png" alt="NimStreak Browse Challenges" width="850" />
+</p>
+
+The **Browse Page** is where players discover active challenges created by other streakers to compete together:
+- **Private Invite Code Portal:** Prominent entry field allowing players to join exclusive private challenges using 6-character access codes (e.g. `STREAK7`, `GYM2026`) created by friends, coworkers, or DAOs.
+- **Instant Search & Filter Chips:** Fast keyword search across habit titles alongside category filter tabs:
+  - 🏋️ **Fitness** (*Pushups, Gym, Running, 10k Steps*)
+  - 📚 **Learning** (*Reading, Skill Drills*)
+  - 💻 **Coding** (*Daily Commits, LeetCode, Building in Public*)
+  - 🥗 **Health** (*Clean Eating, Water Hydration, Sleep Schedules*)
+  - 🧘 **Mindfulness** (*Meditation, Journaling, Digital Detox*)
+- **Challenge Cards:** Rich preview cards showing entry stake requirements (e.g. `0.5 NIM`), duration (`7 Days`), active participant headcount, and total accumulated prize pool. One-click *"View & Stake"* opens the on-chain pledge flow.
+
+---
+
+### 4. 🔥 My Streaks & Habit Tracker
+> *Active commitment tracker, streak flame counter, and trophy showcase.*
+
+<p align="center">
+  <img src="docs/screenshots/my-streaks.png" alt="NimStreak My Streaks" width="850" />
+</p>
+
+The **My Streaks Page** is where daily consistency is monitored and celebrated:
+- **Top Performance Trophies:** Instant view of your current **Active Streak**, total **NIM Earned** from bonus payouts, and total **Goals Won**.
+- **Badges & Achievements Trophy Case:** Unlocks dynamic achievements as you level up your consistency:
+  - 🎯 **First Step:** Unlocked upon creating your very first challenge.
+  - ⚡ **7 Day Streak:** Complete an unbroken full week of daily check-ins.
+  - 🔥 **30 Day Streak:** Master a full month of discipline.
+  - 🌟 **100 Day Streak:** Legendary centurion habit formation.
+  - 👑 **Challenge Winner:** Cross the finish line and claim your stake.
+  - 💪 **Iron Will:** Finish high-stake commitments without faltering.
+- **Challenge Status Filter Tabs:**
+  - **Active:** View live challenges, countdown timers, and tap daily check-ins.
+  - **Completed:** View completed victories with one-click on-chain reward claim buttons.
+  - **Forfeited:** Historical archive of missed habits to reflect, adapt, and retry.
+
+---
+
+### 5. 👤 Player Profile & Performance Metrics
+> *Decoupled wallet identity, customizable profile, and lifetime consistency stats.*
+
+<p align="center">
+  <img src="docs/screenshots/player-profile.png" alt="NimStreak Player Profile" width="850" />
+</p>
+
+The **Player Profile** showcases your verifiable blockchain reputation:
+- **Identicon & Display Name:** Features your deterministic Nimiq Identicon avatar and editable streaker alias (e.g. `Streaker_QC0T`).
+- **Decoupled Wallet Identity:** Displays your stable profile ID (`NQ60...QC0T`) with one-click copy, keeping your stats persistent even when switching signing accounts in Nimiq Pay.
+- **Habit Performance Metrics Grid:** Comprehensive track record tracking:
+  - 🔥 **Active Streak** & ⚡ **Best Streak Ever**
+  - 💎 **NIM Won** & 🔒 **Total Staked**
+  - 🏆 **Challenges Completed** vs 💀 **Challenges Forfeited**
 
 ---
 
