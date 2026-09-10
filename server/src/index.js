@@ -306,11 +306,19 @@ app.get("/api/challenges/:id", async (req, res) => {
         totalPoolLuna: calculation.totalPoolLuna,
         quitterPool: calculation.quitterPoolNim,
         quitterPoolLuna: calculation.quitterPoolLuna,
+        forfeitedPool: calculation.forfeitedPoolNim,
+        forfeitedPoolLuna: calculation.forfeitedPoolLuna,
         treasuryFee: calculation.treasuryFeeNim,
         activeCount: participants.filter((p) => p.status === "active").length,
         quittersCount: calculation.quitterCount,
         finishersCount: calculation.finisherCount,
+        estimatedForfeitedRewardPerFinisher: calculation.estimatedForfeitedRewardPerFinisher,
+        totalNimStreakBonusNim: calculation.totalNimStreakBonusNim,
+        totalTheoreticalBonusNim: calculation.totalTheoreticalBonusNim,
+        challengeMaxBonusNim: calculation.challengeMaxBonusNim,
+        isBonusScaled: calculation.isBonusScaled,
       },
+      calculatedPayouts: calculation.payouts,
     });
   } catch (err) {
     console.error("[challenges:detail] error:", err.message);
@@ -672,7 +680,8 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
         error: payoutErr.message,
       });
       return res.status(400).json({
-        error: `Payout execution failed: ${payoutErr.message}`,
+        error: `Payout execution failed: ${payoutErr.message}. Your claim eligibility is preserved and can be retried once the treasury is funded.`,
+        retryable: true,
       });
     }
 
@@ -712,8 +721,11 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       amountNim: myPayout.total_nim,
       amountLuna: myPayout.total_luna,
       breakdown: {
-        principalNim: myPayout.principal_nim,
+        principalNim: myPayout.stake_return_nim,
+        forfeitedRewardNim: myPayout.forfeited_reward_nim,
+        nimstreakBonusNim: myPayout.nimstreak_bonus_nim,
         bonusNim: myPayout.bonus_nim,
+        totalNim: myPayout.total_nim,
         payoutType: myPayout.payout_type,
       },
     });

@@ -277,10 +277,30 @@ export function ChallengeDetailScreen({
   const currentStreak = participant?.current_streak || 0;
   const duration = challenge.duration_days || 30;
   const progressPercent = Math.min(100, Math.round((currentStreak / duration) * 100));
-  const estimatedTotalPayout = (
-    parseFloat(participant?.stake_amount || challenge.stake_nim) +
-    parseFloat(stats?.estimatedBonusPerFinisher || 0)
-  ).toFixed(2);
+  const cleanWalletUpper = (cleanWallet || "").toUpperCase();
+  const calculatedEntry = challengeData?.calculatedPayouts?.find((p) => {
+    const pAddr = (p.wallet_address || "").replace(/\s+/g, "").toUpperCase();
+    const partAddr = (participant?.wallet_address || "").replace(/\s+/g, "").toUpperCase();
+    return (cleanWalletUpper && pAddr === cleanWalletUpper) || (partAddr && pAddr === partAddr);
+  });
+
+  const userStakeNim = calculatedEntry?.stake_return_nim !== undefined
+    ? parseFloat(calculatedEntry.stake_return_nim)
+    : parseFloat(participant?.stake_amount || challenge.stake_nim || 0);
+
+  const forfeitedRewardNim = calculatedEntry?.forfeited_reward_nim !== undefined
+    ? parseFloat(calculatedEntry.forfeited_reward_nim)
+    : stats?.estimatedForfeitedRewardPerFinisher !== undefined
+    ? parseFloat(stats.estimatedForfeitedRewardPerFinisher)
+    : 0;
+
+  const nimStreakBonusNim = calculatedEntry?.nimstreak_bonus_nim !== undefined
+    ? parseFloat(calculatedEntry.nimstreak_bonus_nim)
+    : Math.min(userStakeNim * 0.5, 5);
+
+  const estimatedTotalPayout = calculatedEntry?.total_nim !== undefined
+    ? parseFloat(calculatedEntry.total_nim).toFixed(2)
+    : (userStakeNim + forfeitedRewardNim + nimStreakBonusNim).toFixed(2);
 
   return (
     <div className="screen-container challenge-detail-screen" ref={cardRef}>
@@ -377,7 +397,7 @@ export function ChallengeDetailScreen({
             <span className="d-box__val" ref={bonusRef}>
               🏆 {stats?.totalPool || 0} NIM
             </span>
-            <span className="d-box__lbl">Quitter Pool</span>
+            <span className="d-box__lbl">Forfeited Pool</span>
           </div>
         </div>
 
@@ -400,11 +420,36 @@ export function ChallengeDetailScreen({
       {isParticipant && !isFailed && isCompleted && (
         <section className="claim-reward-card">
           <div className="claim-reward-card__icon">🏆</div>
-          <h3 className="claim-reward-card__title">Challenge Completed! You Won!</h3>
+          <h3 className="claim-reward-card__title">Challenge Completed! Streak Won!</h3>
           <p className="claim-reward-card__desc">
-            You stayed consistent through all {duration} days. Your original stake of{" "}
-            <strong>{participant?.stake_amount || challenge.stake_nim} NIM</strong> + your share of the quitter pool is ready.
+            You stayed consistent through all {duration} days. Complete your streak to reclaim your stake and earn from forfeited stakes, plus a NimStreak bonus.
           </p>
+
+          <div className="payout-preview-card" style={{ marginTop: "1rem", marginBottom: "1.25rem", textAlign: "left" }}>
+            <div className="payout-preview-card__header">
+              <span>🪙</span>
+              <span>Reward Breakdown</span>
+            </div>
+            <div className="preview-row">
+              <span style={{ color: "var(--ink-muted)" }}>Original Stake Return</span>
+              <span style={{ fontWeight: 600 }}>{userStakeNim.toFixed(2)} NIM</span>
+            </div>
+            <div className="preview-row">
+              <span style={{ color: "var(--ink-muted)" }}>Forfeited Pool Reward</span>
+              <span style={{ fontWeight: 600, color: "var(--gold-primary)" }}>+{forfeitedRewardNim.toFixed(2)} NIM</span>
+            </div>
+            <div className="preview-row">
+              <span style={{ color: "var(--ink-muted)" }}>
+                NimStreak Bonus {stats?.isBonusScaled ? "(scaled to challenge budget)" : "(50% max 5 NIM)"}
+              </span>
+              <span style={{ fontWeight: 600, color: "#22c55e" }}>+{nimStreakBonusNim.toFixed(2)} NIM</span>
+            </div>
+            <div className="preview-divider" />
+            <div className="preview-row preview-row--total">
+              <span>Total Payout</span>
+              <span style={{ color: "var(--gold-primary)", fontSize: "1.05rem" }}>{estimatedTotalPayout} NIM</span>
+            </div>
+          </div>
 
           {hasClaimed ? (
             <div className="claim-reward-claimed-banner">
@@ -538,7 +583,7 @@ export function ChallengeDetailScreen({
             <h3>Ready to take on this challenge?</h3>
             <p>
               Stake <strong>{challenge.stake_nim} NIM</strong> to join. Complete all {duration} days
-              to reclaim your stake plus your share of any forfeited stakes!
+              to reclaim your stake and earn from forfeited stakes, plus a NimStreak bonus!
             </p>
           </div>
           <button
@@ -573,16 +618,24 @@ export function ChallengeDetailScreen({
             <span className="mechanics-info-item__icon">🛡️</span>
             <div>
               <strong>100% Stake Protection</strong>
-              <p>Check in once every 24 hours. Complete the challenge to get 100% of your stake back.</p>
+              <p>Check in once every 24 hours. Complete your streak to reclaim 100% of your original stake.</p>
             </div>
           </div>
           <div className="mechanics-info-item">
             <span className="mechanics-info-item__icon">🏆</span>
             <div>
-              <strong>Potential Bonus</strong>
+              <strong>100% Forfeited Pool Share</strong>
               <p>
-                Finishers share eligible forfeited stakes after the 10% treasury fee.
-                Your bonus depends on how many participants complete the challenge.
+                Eligible finishers receive 100% of forfeited stakes with zero treasury fee deductions.
+              </p>
+            </div>
+          </div>
+          <div className="mechanics-info-item">
+            <span className="mechanics-info-item__icon">⚡</span>
+            <div>
+              <strong>NimStreak Bonus</strong>
+              <p>
+                Earn an extra 50% bonus (up to 5 NIM per finisher), funded by NimStreak subject to the 20 NIM challenge bonus budget.
               </p>
             </div>
           </div>

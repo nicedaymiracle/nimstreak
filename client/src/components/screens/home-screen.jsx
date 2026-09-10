@@ -459,7 +459,7 @@ export function HomeScreen({
                 <span className="step-card__icon">🏆</span>
               </div>
               <h3 className="step-card__title">Finish your streak</h3>
-              <p className="step-card__desc">Reclaim your stake plus bonus payouts from the quitter pool.</p>
+              <p className="step-card__desc">Reclaim your stake plus forfeited rewards and a NimStreak bonus.</p>
             </div>
           </div>
 

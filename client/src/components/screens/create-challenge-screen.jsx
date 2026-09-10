@@ -317,13 +317,13 @@ export function CreateChallengeScreen({
           <div className="create-summary-body">
             <p className="create-summary-desc">
               Finish your streak to reclaim your {Number(stakeNim || 0).toFixed(1)} NIM stake
-              {type !== "solo" ? " + eligible bonus from the quitter pool." : "."}
+              {type !== "solo" ? " + share of forfeited stakes + NimStreak bonus." : " + NimStreak bonus."}
             </p>
 
             <p className="create-summary-sub">
               {type === "solo"
                 ? "Solo habit challenges return 100% of your stake upon completing all daily check-ins."
-                : "Finishers share eligible forfeited stakes after the 10% treasury fee. Your potential bonus depends on participant completion rate."}
+                : "Finishers share 100% of forfeited stakes with no treasury fee, plus an additional NimStreak bonus of up to 50% (max 5 NIM)."}
             </p>
           </div>
         </div>

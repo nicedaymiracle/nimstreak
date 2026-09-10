@@ -14,7 +14,7 @@ export const NIMSTREAK_RULES = [
   "Stake NIM to enter the accountability arena",
   "Check in every day before midnight UTC to keep your streak alive",
   "Miss one day and your stake goes to the winners prize pool",
-  "Complete the entire challenge duration to claim your stake + bonus NIM from quitters",
+  "Complete the entire challenge duration to claim your stake + rewards from forfeited stakes and NimStreak bonus",
 ];
 
 export const GAME_RULES = NIMSTREAK_RULES;
