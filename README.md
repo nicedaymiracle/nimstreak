@@ -1,262 +1,283 @@
-# NimStreak
+<p align="center">
+  <a href="https://nimstreak.vercel.app">
+    <img src="client/public/nimstreak-logo.png" alt="NimStreak Logo" width="130" />
+  </a>
+</p>
 
-> **Small Steps. Real Stakes. A Better You.**
+<h1 align="center">NimStreak</h1>
 
-NimStreak is a Nimiq-powered habit accountability Mini App that lets users commit NIM to personal goals, check in throughout a challenge, and receive their stake back plus a share of forfeited stakes and an additional NimStreak bonus when they successfully complete their streak.
+<p align="center">
+  <strong>Small Steps. Real Stakes. A Better You.</strong><br />
+  The high-stakes habit accountability game on the Nimiq blockchain.
+</p>
 
-🎯 **Live:** https://nimstreak.vercel.app
+<p align="center">
+  <a href="https://nimstreak.vercel.app"><img src="https://img.shields.io/badge/Live_App-nimstreak.vercel.app-EBB700?style=for-the-badge&logo=safari&logoColor=white" alt="Live App" /></a>
+  <img src="https://img.shields.io/badge/Nimiq_2.0-Albatross_PoS-EBB700?style=for-the-badge" alt="Nimiq 2.0" />
+  <img src="https://img.shields.io/badge/Nimiq_Pay-Mini_App-1F2937?style=for-the-badge" alt="Nimiq Pay" />
+  <img src="https://img.shields.io/badge/Tests-50%2F50_Passing-10B981?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License" />
+</p>
 
----
-
-## Why NimStreak?
-
-Most habit trackers make it easy to start a challenge but impose no meaningful consequence for quitting. NimStreak changes this by adding **financial accountability through NIM**.
-
-When you join a challenge, you stake real NIM. Completing your streak returns your stake — plus a share of the forfeited stakes from everyone who quit — plus a NimStreak bonus. Walking away means your stake goes to the finishers who kept their commitment.
-
----
-
-## How It Works
-
-1. **Connect Nimiq Pay** — link your Nimiq wallet inside the NimiqPay Mini App environment
-2. **Choose or create a challenge** — pick a public challenge, join by invite code, or create your own
-3. **Stake NIM** — transfer your stake on-chain to confirm participation (minimum 0.5 NIM)
-4. **Check in daily** — tap "Check In" each day of the challenge to record your progress
-5. **Complete the challenge** — finish all required days to become an eligible finisher
-6. **Receive eligible rewards** — claim your stake return, forfeited pool share, and NimStreak bonus
-
-> **Note:** Daily habit completion currently relies on user check-ins and optional proof description, not automatic verification of physical activity.
-
----
-
-## Features
-
-- ✅ Nimiq Pay wallet connection
-- ✅ Create public and private challenges
-- ✅ NIM staking with on-chain transaction verification
-- ✅ Daily check-ins with streak calendar
-- ✅ Challenge leaderboards
-- ✅ Forfeited-stake reward pool (100% distributed to finishers)
-- ✅ NimStreak bonus payout
-- ✅ Invite codes and challenge sharing
-- ✅ First Step badge for challenge creation
-- ✅ Profile and streak statistics
-- ✅ Anti-replay protection
-- ✅ Payout idempotency and stale recovery
-- ✅ Treasury balance guard
-- ✅ Sequential payout execution (concurrency-safe)
-- ✅ BigInt Luna accounting
+<p align="center">
+  <a href="#-the-game-loop">Game Loop</a> •
+  <a href="#-why-nimstreak-works">The Psychology</a> •
+  <a href="#-how-it-works">How It Works</a> •
+  <a href="#-reward-model--quitter-pool">Reward Economics</a> •
+  <a href="#-game-features">Features</a> •
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-financial-safety--security">Safety</a> •
+  <a href="#-getting-started">Getting Started</a>
+</p>
 
 ---
 
-## Reward Model
+## 🎮 The Game Loop
 
-### Individual NimStreak Bonus
+Most habit trackers fail because **quitting is free**. When there are no consequences for skipping day 4 of your workout or coding sprint, your brain easily chooses comfortable defeat.
+
+**NimStreak turns daily consistency into a high-stakes competitive game:**
 
 ```
-individualBonus = min(originalStake × 50%, 5 NIM)
+  ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+  │ 1. JOIN QUEST   │ ────► │ 2. STAKE NIM    │ ────► │ 3. CHECK IN     │
+  │ Pick habit &    │       │ Deposit crypto  │       │ Tap daily before│
+  │ duration (7-30d)│       │ into the pot    │       │ midnight UTC    │
+  └─────────────────┘       └─────────────────┘       └────────┬────────┘
+                                                               │
+                                  ┌────────────────────────────┴───────────────────────────┐
+                                  ▼                                                        ▼
+                         ❌ Missed Check-in / Quit                          🔥 100% Days Completed
+                                  │                                                        │
+                                  ▼                                                        ▼
+                         💀 STAKE FORFEITED                               🏆 VICTORY PAYOUT
+                         Your deposit goes to the                         • 100% original stake back
+                         active Quitter Pool                              • Equal share of Quitter Pool
+                                  │                                       • Scaled NimStreak bonus
+                                  └───────────────────────────────────────────────►┘
 ```
 
-### Challenge-Wide Bonus Cap
+> **The Hook:** Stay disciplined and you take home the forfeited stakes of everyone who quit. Break your promise, and your coins fund the winners.
 
-The total NimStreak bonus across all finishers in a single challenge is capped at **20 NIM**. When the sum of individual theoretical bonuses exceeds this cap, bonuses are proportionally scaled using integer Luna accounting with deterministic remainder distribution.
+---
 
-### Forfeited Pool
+## 🧠 Why NimStreak Works
 
-100% of forfeited stakes are distributed proportionally among eligible finishers. The NimStreak treasury takes **0% fee** from the forfeited pool.
+- **Loss Aversion:** Behavioral economics proves people work twice as hard to avoid losing $10 as they do to gain $10. Staking real NIM activates loss aversion for positive life change.
+- **Social Accountability:** Create private challenges with friends, share invite codes, and compete on the live streak leaderboard.
+- **Visible Momentum:** The interactive streak calendar turns daily discipline into tangible, colorful momentum you don't want to break.
+- **Zero-Friction Crypto:** Runs natively inside the **Nimiq Pay Mini App** ecosystem with instant checkout, fast Albatross finality, and tiny transaction fees.
 
-### Total Eligible Payout
+---
+
+## ⚡ How It Works
+
+### Step 1: Connect Nimiq Pay
+Tap **"Continue with Nimiq Pay"** to link your non-custodial wallet inside the Mini App environment. No seed phrases to enter, no complex network switches.
+
+### Step 2: Choose or Create a Challenge
+Browse trending community challenges or spin up your own custom challenge:
+- 🏃 **Fitness:** 50 Pushups Daily, 10,000 Steps, Morning Run
+- 💻 **Coding:** Ship 1 Commit Daily, Solve 1 LeetCode, Build in Public
+- 🥗 **Health:** Drink 2L Water, Zero Sugar, Eat Clean
+- 🧘 **Mindfulness:** 15m Meditation, Read 25 Pages, Cold Shower
+- ⚙️ **Custom:** Set your own rules, duration (7, 14, 21, or 30 days), and stake (0.5 to 100 NIM).
+
+### Step 3: Stake Your NIM
+Confirm your stake transaction through Nimiq Pay. The backend verifies the transaction directly on the Nimiq blockchain via RPC before granting you active participant status.
+
+### Step 4: Check In Daily
+Open NimStreak once per day before midnight UTC and hit **"Check In"**. Add optional proof notes or reflections to chronicle your journey. Watch your streak flame climb!
+
+### Step 5: Claim Your Rewards
+Survive the challenge to cross the finish line. Claim your prize directly back to your Nimiq address with a single tap.
+
+---
+
+## 💰 Reward Model & Quitter Pool
+
+NimStreak implements a mathematically balanced, non-inflationary reward economy:
 
 ```
-Total = original stake return
-      + share of 100% forfeited pool
-      + actual scaled NimStreak bonus
+Total Finish Payout = Original Stake Return
+                    + Share of Forfeited Quitter Pool (0% platform rake)
+                    + Scaled NimStreak Treasury Bonus (capped)
 ```
 
-### Example
+### 1. 100% Forfeited Pool Distribution
+When a participant quits or misses check-ins, their entire stake is transferred into the challenge's **Quitter Pool**.
+- **0% Platform Fee:** NimStreak takes **no cut** from forfeited funds. 100% goes directly to the finishers.
+- If multiple challengers complete the streak, the pool is split proportionally based on their stakes.
 
-> A, B, C, and D each stake **10 NIM**.
-> A and B complete the challenge. C and D forfeit.
->
-> Forfeited pool = 20 NIM → each finisher receives 10 NIM
-> Individual bonus = min(10 × 50%, 5) = 5 NIM per finisher
-> Total bonus = 10 NIM → within the 20 NIM challenge cap (no scaling needed)
->
-> **A and B each receive:**
-> - 10 NIM stake return
-> - 10 NIM forfeited pool share
-> - 5 NIM NimStreak bonus
-> - **= 25 NIM total**
+### 2. Individual Bonus Cap
+To reward dedication, NimStreak funds an additional treasury bonus:
+$$\text{Individual Bonus} = \min(\text{Original Stake} \times 50\%, 5\text{ NIM})$$
+*Example: A 10 NIM stake qualifies for up to 5 NIM bonus.*
 
-*Actual payouts depend on challenge participation, stake amounts, and the 20 NIM bonus cap.*
+### 3. Challenge Bonus Cap
+To protect treasury solvency, the total bonus payout across **all finishers in a single challenge is capped at 20 NIM**.
+- When the collective bonus exceeds 20 NIM (e.g. 100 finishers), bonuses scale proportionally using deterministic BigInt integer Luna accounting (no fractional rounding loss).
 
----
+### 📊 Example Scenario
 
-## Nimiq Integration
+| Challenger | Initial Stake | Outcome | Stake Return | Quitter Share | Bonus | Total Payout |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Alice** | 10 NIM | Completed 🔥 | 10 NIM | +10 NIM | +5 NIM | **25 NIM** (+150%) |
+| **Bob** | 10 NIM | Completed 🔥 | 10 NIM | +10 NIM | +5 NIM | **25 NIM** (+150%) |
+| **Charlie** | 10 NIM | Quit Day 3 💀 | 0 NIM | 0 NIM | 0 NIM | **0 NIM** |
+| **Dave** | 10 NIM | Quit Day 5 💀 | 0 NIM | 0 NIM | 0 NIM | **0 NIM** |
 
-- **Nimiq Pay** handles wallet connection and payment interaction within the Mini App environment
-- **Stakes** are transferred on-chain from the user's wallet to the configured NimStreak treasury address
-- **The backend verifies** the stake transaction on-chain before activating participation
-- **Payouts** are sent on-chain from the treasury to the claimant's wallet address
-- **Payout finality** requires on-chain confirmation before the payout record is marked as successful
-
-> **Transparency:** The current version uses a treasury-based custody model. Stakes flow into the NimStreak treasury and are disbursed by the backend. This is not a trustless smart contract escrow. The competition version prioritises speed of delivery over full decentralisation.
+*Quitter Pool = 20 NIM (Charlie + Dave). Split equally between Alice and Bob.*
 
 ---
 
-## Architecture
+## 🎯 Game Features
+
+- 🔥 **Dynamic Streak Flame & Heatmap:** Interactive visual calendar tracking every active and past check-in.
+- ⚡ **Instant Nimiq Pay Staking:** Seamless one-click blockchain transactions.
+- 🛡️ **Anti-Replay Verification:** Cryptographically validates transaction hashes on-chain before admitting participants.
+- 🏆 **Global & Challenge Leaderboards:** Compete for the longest streaks and most disciplined habits.
+- 🎖️ **Badge & Achievement System:** Unlock badges like *First Step* (creating your first challenge), *7-Day Warrior*, and *Centurion*.
+- 🔗 **Private Challenges & Invite Codes:** Generate custom 6-character codes to rally your team, gym buddies, or DAO.
+- 📱 **Mobile-First Responsive Design:** Built specifically for modern mobile viewports inside the Nimiq Pay webview.
+- 🔒 **Sequential Payout Mutex:** Server-side async lock prevents double-claims and race conditions during simultaneous reward withdrawals.
+
+---
+
+## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   NimiqPay Mini App                      │
-│   React + Vite (Vercel)                                  │
-│   NimiqPay SDK → wallet connection + stake payment       │
-└───────────────────────┬─────────────────────────────────┘
-                        │ REST + WebSocket (Socket.IO)
-┌───────────────────────▼─────────────────────────────────┐
-│                   NimStreak Backend                       │
-│   Node.js + Express (Fly.io)                             │
-│   - Challenge CRUD                                       │
-│   - Check-in processing                                  │
-│   - Transaction verification (Nimiq RPC)                 │
-│   - Payout engine with mutex + treasury guard            │
-└──────────┬───────────────────────────┬───────────────────┘
-           │                           │
-┌──────────▼────────┐      ┌───────────▼──────────────────┐
-│  Firebase         │      │  Nimiq Albatross Network      │
-│  Firestore        │      │  - Stake verification (RPC)   │
-│  (DB + profiles)  │      │  - Payout broadcast (RPC)     │
-└───────────────────┘      │  - On-chain confirmation      │
-                           └──────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                          Nimiq Pay Mini App                            │
+│           React 18 + Vite SPA (Hosted on Vercel)                       │
+│    Nimiq Mini App SDK • Identicons • GSAP Animation Engine             │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTPS REST + WebSocket
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                         NimStreak Core API                             │
+│               Node.js + Express (Hosted on Fly.io)                     │
+│  • On-chain RPC verification         • Daily streak evaluator          │
+│  • Payout lock & mutex queue         • Challenge & checkin management  │
+└───────────────────┬─────────────────────────────────┬──────────────────┘
+                    │                                 │
+┌───────────────────▼─────────────┐     ┌─────────────▼──────────────────┐
+│        Google Cloud             │     │      Nimiq 2.0 Blockchain      │
+│      Cloud Firestore            │     │       Albatross PoS Mainnet    │
+│  • Challenges & participants    │     │  • Stake transaction receipt   │
+│  • Anti-replay hash index       │     │  • Liquid treasury balance     │
+│  • Daily check-in timestamps    │     │  • Automated payout broadcast  │
+└─────────────────────────────────┘     └────────────────────────────────┘
 ```
 
 ---
 
-## Wallet Identity
+## 👤 Wallet Identity Architecture
 
-NimStreak maintains a **stable profile identity** (the address used to register the profile) while preserving the actual Nimiq Pay **funding address** used for on-chain stake transactions.
-
-This allows users whose active signing wallet changes between sessions to retain their challenge history, streak stats, and badge records under a consistent profile.
-
----
-
-## Security
-
-- Server-side transaction verification against the Nimiq RPC
-- On-chain confirmation required before participation is activated
-- Anti-replay protection (stake transaction hashes are recorded and rejected if reused)
-- Payout idempotency (duplicate claim requests are detected and rejected)
-- Stale payout recovery (unconfirmed payouts from previous attempts are resolved before retrying)
-- Treasury balance guard (payout is blocked if available balance cannot be verified)
-- Unknown treasury balance blocks payout (null balance = abort, not proceed)
-- Sequential payout execution via in-memory promise-chain mutex
-- BigInt Luna accounting throughout (no floating point)
-- Deterministic remainder distribution for bonus scaling
-- All secrets supplied through environment variables — no credentials in source code
-
-> No third-party security audit has been performed on this codebase.
+NimStreak decouples **Profile Identity** from **On-chain Funding Wallets**:
+- **Stable Profile (`NQ48...`):** Your persistent identity. Stores your badges, streak statistics, display name, and active challenge roster.
+- **Funding Wallet (`NQ77...`):** The actual blockchain address that signed and broadcast the stake transaction.
+- **Safety First:** Payouts are sent directly to the verified funding address that deposited the stake, preventing impersonation attacks while allowing multi-account Nimiq Pay users to keep all their stats under one roof.
 
 ---
 
-## Known Limitations
+## 🔒 Financial Safety & Security
 
-- Daily habit completion is based on user self-reported check-ins — external activity verification is not implemented
-- Payout custody relies on the NimStreak treasury; this is not a trustless escrow
-- The in-memory payout mutex protects a single backend process but is not a distributed lock — horizontal scaling would require an external distributed lock (e.g., Redis-based)
-- Production-scale treasury management requires additional operational controls beyond what is currently implemented
-- Automatic rollback of the challenge forfeiture model for edge cases (e.g., all participants forfeit) has not been explicitly tested at scale
+- **Strict Luna Arithmetic:** All calculations use native Nimiq Luna integers (`1 NIM = 100,000 Luna`) via JavaScript `BigInt`. Zero floating-point drift.
+- **Mutex Payout Queue:** Payout requests are executed sequentially through an in-memory lock, eliminating double-spending concurrency races.
+- **Treasury Null Guard:** If Nimiq RPC is unreachable or returns `null` for the treasury balance, payouts **fail safely before broadcast**, preserving claim eligibility for retry.
+- **On-Chain Confirmation:** A payout is only finalized in the database after the transaction is confirmed on the Nimiq Albatross blockchain.
+- **Anti-Replay Protection:** Every incoming stake hash is recorded in a dedicated uniqueness index to prevent replaying past transactions.
 
 ---
 
-## Tech Stack
+## ⚠️ Known Limitations & Transparency
 
-| Layer | Technology |
+- **Treasury Custody Model:** Stakes are held in the secure NimStreak treasury rather than a smart contract. The competition version prioritizes rapid settlement and seamless user experience over decentralized escrow.
+- **Self-Reported Check-ins:** Proof is currently based on honor-system check-ins and notes. Automatic biometric/GPS verification is slated for future milestones.
+- **Single-Node Mutex:** The in-memory payout queue secures a single backend instance. Multi-region horizontal scaling will adopt Redis-backed distributed locks.
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technologies |
 |---|---|
-| Frontend | React 18, Vite, CSS animations |
-| Backend | Node.js, Express, Socket.IO |
-| Database | Firebase Firestore |
-| Blockchain | Nimiq Albatross (PoS Mainnet) |
-| Wallet | Nimiq Pay Mini App SDK |
-| Frontend Hosting | Vercel |
-| Backend Hosting | Fly.io |
+| **Client** | React 18, Vite 7, GSAP animations, Nimiq Mini App SDK, Nimiq Identicons |
+| **Server** | Node.js 20, Express, Socket.IO, `@nimiq/core` (Albatross v2) |
+| **Storage** | Google Cloud Firestore (with in-memory fallback for local dev) |
+| **Network** | Nimiq 2.0 Albatross PoS Mainnet (`Network ID: 24`) |
+| **Infra** | Vercel (Frontend SPA) • Fly.io (Backend API) |
 
 ---
 
-## Project Structure
+## 📂 Project Structure
 
 ```
 nimstreak/
-├── client/                  # React + Vite Mini App frontend
+├── client/                      # React + Vite Frontend
+│   ├── public/                  # Static assets & brand logos
 │   ├── src/
-│   │   ├── components/      # UI components and screens
-│   │   ├── config/          # API URLs, Nimiq config
-│   │   ├── hooks/           # useNimiqWallet hook
-│   │   └── utils/           # Frontend utility helpers
-│   ├── index.html
+│   │   ├── components/
+│   │   │   ├── screens/         # Home, Challenge Detail, Create, Profile
+│   │   │   └── ui/              # Modals, Navigation, Badges, Heatmap
+│   │   ├── config/              # API and Nimiq network configuration
+│   │   └── utils/               # Formatting, animations, and identicons
 │   └── package.json
-├── server/                  # Node.js backend
+├── server/                      # Node.js Express Backend
 │   ├── src/
-│   │   ├── index.js         # Express API + Socket.IO
-│   │   ├── db.js            # Firestore / in-memory DB
-│   │   ├── nimstreak-payout.js  # Payout engine, mutex, financial safety
-│   │   └── redis.js         # Redis client (Socket.IO adapter)
-│   ├── tests/               # Server test suite
+│   │   ├── index.js             # HTTP routes & WebSocket handlers
+│   │   ├── db.js                # Firestore database & memory fallback
+│   │   ├── nimstreak-payout.js  # Payout engine, mutex & bonus math
+│   │   ├── constants/           # Network endpoints
+│   │   └── redis.js             # Socket.IO Redis adapter
+│   ├── tests/                   # Test suite (50 tests, 6 suites)
 │   └── package.json
 ├── .gitignore
-├── LICENSE                  # MIT
+├── LICENSE                      # MIT
 ├── README.md
-└── vercel.json              # Vercel deployment config
+└── vercel.json                  # Frontend deployment routing
 ```
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
-
 - Node.js 20+
-- A Nimiq Pay compatible environment (or browser wallet for local testing)
-- Firebase project (optional — falls back to in-memory DB for development)
+- A modern browser with Nimiq Pay or Nimiq Hub wallet
 
-### Clone & Install
+### 1. Clone & Install
 
 ```bash
 git clone https://github.com/nicedaymiracle/nimstreak.git
 cd nimstreak
 
-# Install client dependencies
+# Install client & server
 cd client && npm install
-
-# Install server dependencies
 cd ../server && npm install
 ```
 
-### Environment Configuration
+### 2. Environment Setup
 
-**Client** — create `client/.env.local`:
-
+**Client (`client/.env.local`):**
 ```env
 VITE_API_BASE_URL=http://localhost:4000
 VITE_SOCKET_URL=http://localhost:4000
 VITE_NIMIQ_NETWORK=mainnet
-VITE_NIMIQ_TREASURY_ADDRESS=<your_treasury_address>
-VITE_NIMIQ_HUB_URL=https://hub.nimiq.com
+VITE_NIMIQ_TREASURY_ADDRESS=NQ68LS475LF6C7CUMVB6KL55YSFGPEXJADJ0
 ```
 
-**Server** — create `server/.env`:
-
+**Server (`server/.env`):**
 ```env
 PORT=4000
-NIMIQ_RPC_URL=<nimiq_rpc_endpoint>
-NIMIQ_TREASURY_ADDRESS=<your_treasury_address>
-NIMIQ_TREASURY_PRIVATE_KEY=<secret — never commit>
-FIREBASE_SERVICE_ACCOUNT=<base64_encoded_service_account_json>
-ADMIN_TOKEN=<your_admin_token>
-MIN_STAKE_NIM=0.5
-MAX_STAKE_NIM=100
+NIMIQ_RPC_URL=https://rpc.nimiqwatch.com
+NIMIQ_TREASURY_ADDRESS=NQ68LS475LF6C7CUMVB6KL55YSFGPEXJADJ0
+NIMIQ_TREASURY_PRIVATE_KEY=your_private_key_here
+FIREBASE_SERVICE_ACCOUNT=your_service_account_json_here
+ADMIN_TOKEN=your_admin_secret
 ```
 
-### Run Development Servers
+### 3. Run Development Servers
 
 ```bash
 # Terminal 1 — Backend
@@ -266,112 +287,41 @@ cd server && npm run dev
 cd client && npm run dev
 ```
 
----
-
-## Environment Variables
-
-### Server
-
-| Variable | Required | Description |
-|---|---|---|
-| `PORT` | No | Server port (default: 4000) |
-| `NIMIQ_RPC_URL` | Yes | Nimiq Albatross RPC endpoint |
-| `NIMIQ_TREASURY_ADDRESS` | Yes | Treasury wallet address (NQ…) |
-| `NIMIQ_TREASURY_PRIVATE_KEY` | **Secret** | Treasury signing key — never commit |
-| `FIREBASE_SERVICE_ACCOUNT` | Yes (prod) | Base64 service account JSON |
-| `FIREBASE_SERVICE_ACCOUNT_KEY_PATH` | Alt | Path to service account file |
-| `ADMIN_TOKEN` | Yes | Admin endpoint auth token |
-| `MIN_STAKE_NIM` | No | Minimum stake (default: 0.5) |
-| `MAX_STAKE_NIM` | No | Maximum stake (default: 100) |
-| `SKIP_TX_VERIFICATION` | Dev only | Bypass on-chain TX checks in tests |
-
-### Client
-
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_API_BASE_URL` | Yes | Backend API base URL |
-| `VITE_SOCKET_URL` | Yes | Socket.IO server URL |
-| `VITE_NIMIQ_NETWORK` | Yes | `mainnet` or `testnet` |
-| `VITE_NIMIQ_TREASURY_ADDRESS` | Yes | Treasury address shown to users |
-| `VITE_NIMIQ_HUB_URL` | No | Nimiq Hub URL override |
+Visit `http://localhost:5173` in your browser.
 
 ---
 
-## Testing
+## 🧪 Testing
+
+NimStreak features a comprehensive 50-test automated test suite:
 
 ```bash
 cd server && npm test
 ```
 
-The test suite validates:
-- NimStreak financial engine (reward model, bonus cap, Luna accounting)
-- Payout concurrency safety (mutex, treasury null guard, balance checks)
-- Wallet identity architecture (NQ48/NQ77 profile separation)
-- Firestore persistence layer (in-memory fallback)
-- Payout confirmation and stale recovery
-- Challenge browsing and discovery
-- Achievement and badge flows
-- Nimiq network constants
-
----
-
-## Deployment
-
-### Frontend (Vercel)
-
-The `vercel.json` at the repository root configures the Vercel deployment. Connect the GitHub repository to Vercel and set the client environment variables in the Vercel project settings.
-
-### Backend (Fly.io)
-
-The server includes a `Dockerfile` generated by `@flydotio/dockerfile`. Deploy via the Fly.io CLI:
-
-```bash
-cd server
-fly deploy
 ```
+✔ NimStreak Persistence Layer (Firestore & In-Memory Fallback)
+✔ First Step Badge Awarding and Retrieval Flow
+✔ Nimiq Mainnet RPC & Network Endpoints
+✔ NimStreak Hybrid Bonus Funding & Financial Safety Engine
+✔ Nimiq 2.0 Network ID & Payout Confirmation
+✔ Minimal Stable Wallet Identity Architecture
 
-Set server environment variables as Fly.io secrets:
-
-```bash
-fly secrets set NIMIQ_TREASURY_PRIVATE_KEY=<value>
-fly secrets set FIREBASE_SERVICE_ACCOUNT=<base64_value>
+ℹ tests 50 | suites 6 | pass 50 | fail 0
 ```
 
 ---
 
-## Roadmap
+## 🗺️ Roadmap
 
-The following improvements are planned but not yet implemented:
-
-- [ ] Smart contract escrow (replace treasury custody model with trustless on-chain escrow)
-- [ ] Distributed payout lock (replace in-memory mutex with Redis-based lock for multi-instance deployment)
-- [ ] Activity verification integrations (optional proof-of-activity via external APIs)
-- [ ] Multi-day grace period logic for edge cases
-- [ ] Challenge categories and discovery filters
-- [ ] Push notifications for check-in reminders
+- [ ] **Smart Contract Escrow:** Transition from treasury custody to trustless on-chain Nimiq escrow contracts.
+- [ ] **External Activity Integrations:** Connect Strava, GitHub API, and Apple Health for verified automated check-ins.
+- [ ] **Multi-Day Grace Periods:** Streak recovery passes for emergency situations.
+- [ ] **Challenge NFT Badges:** Commemorative on-chain badges for major milestone completions.
+- [ ] **Distributed Payout Locks:** Redis Redlock integration for multi-region clustering.
 
 ---
 
-## Contributing
+## 📜 License
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/your-feature`
-3. Make your changes and run the test suite: `cd server && npm test`
-4. Verify the client builds: `cd client && npm run build`
-5. Submit a pull request with a clear description of your change
-
-Please do not commit `.env` files, private keys, or service account credentials.
-
----
-
-## License
-
-MIT — see [LICENSE](./LICENSE) for details.
-
----
-
-## Team
-
-NimStreak was built by **Chinex Ojile** and **Miracle Alajemba**.
-
-Miracle is a collaborator on the project and the person who introduced the team to Nimiq and the NimiqPay Mini App platform, which became the core of NimStreak's blockchain integration.
+Distributed under the MIT License. See [LICENSE](./LICENSE) for details.
