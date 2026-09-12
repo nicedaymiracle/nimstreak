@@ -23,6 +23,7 @@ export default function App() {
   const [profileData, setProfileData] = useState(null);
   const [globalStats, setGlobalStats] = useState(null);
   const [toastMessage, setToastMessage] = useState("");
+  const [desktopNoticeOpen, setDesktopNoticeOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [initialInviteCode, setInitialInviteCode] = useState("");
   const [pendingChallengeId, setPendingChallengeId] = useState(null);
@@ -247,6 +248,9 @@ export default function App() {
       setScreen("challenge-detail");
     } catch (err) {
       showToast(`❌ ${err.message || "Failed to create challenge"}`);
+      if (err.message && (err.message.includes("Nimiq Pay Mobile App") || err.message.includes("payment provider"))) {
+        setDesktopNoticeOpen(true);
+      }
       throw err;
     } finally {
       setSubmitting(false);
@@ -300,6 +304,9 @@ export default function App() {
       await fetchUserData();
     } catch (err) {
       showToast(`❌ ${err.message || "Failed to join challenge"}`);
+      if (err.message && (err.message.includes("Nimiq Pay Mobile App") || err.message.includes("payment provider"))) {
+        setDesktopNoticeOpen(true);
+      }
       throw err;
     }
   };
@@ -363,6 +370,9 @@ export default function App() {
       }
     } catch (err) {
       showToast(`❌ ${err.message || "Failed to join via invite code"}`);
+      if (err.message && (err.message.includes("Nimiq Pay Mobile App") || err.message.includes("payment provider"))) {
+        setDesktopNoticeOpen(true);
+      }
       throw err;
     }
   };
@@ -588,6 +598,75 @@ export default function App() {
         walletAddress={walletAddress}
         onConnectWallet={handleSignIn}
       />
+
+      {/* Desktop Nimiq Pay Staking Environment Guidance Modal */}
+      {desktopNoticeOpen && (
+        <div className="modal-overlay" onClick={() => setDesktopNoticeOpen(false)}>
+          <div
+            className="modal-card desktop-notice-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="desktop-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="modal-close-btn"
+              onClick={() => setDesktopNoticeOpen(false)}
+              aria-label="Close modal"
+            >
+              ✕
+            </button>
+            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem", textAlign: "center" }} aria-hidden="true">
+              📱
+            </div>
+            <h2 id="desktop-modal-title" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", textAlign: "center", marginBottom: "0.5rem" }}>
+              Nimiq Pay Mobile App Required
+            </h2>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.5, textAlign: "center", marginBottom: "1.25rem" }}>
+              NimStreak is built as a <strong>Nimiq Pay Mini App</strong>. To guarantee zero-gas microtransactions and biometric security, real NIM staking must be approved inside the Nimiq Pay mobile environment.
+            </p>
+            <div style={{ background: "rgba(255, 255, 255, 0.04)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "1rem", marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", fontSize: "0.85rem", color: "var(--text-primary)" }}>
+                <span style={{ background: "var(--gold-gradient)", color: "#000", fontWeight: 700, borderRadius: "50%", width: "20px", height: "20px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", flexShrink: 0 }}>1</span>
+                <span>Open the <strong>Nimiq Pay</strong> app on your mobile device.</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", fontSize: "0.85rem", color: "var(--text-primary)" }}>
+                <span style={{ background: "var(--gold-gradient)", color: "#000", fontWeight: 700, borderRadius: "50%", width: "20px", height: "20px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", flexShrink: 0 }}>2</span>
+                <span>Navigate to <strong>Mini Apps</strong> and open <strong>NimStreak</strong>.</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", fontSize: "0.85rem", color: "var(--text-primary)" }}>
+                <span style={{ background: "var(--gold-gradient)", color: "#000", fontWeight: 700, borderRadius: "50%", width: "20px", height: "20px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", flexShrink: 0 }}>3</span>
+                <span>Confirm your NIM stake with native biometric authorization!</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+              <button
+                type="button"
+                className="btn btn--gold"
+                style={{ flex: 1, padding: "0.75rem" }}
+                onClick={() => {
+                  if (typeof navigator !== "undefined" && navigator.clipboard) {
+                    navigator.clipboard.writeText("https://nimstreak.vercel.app");
+                    showToast("📋 Copied app link to clipboard!");
+                  }
+                  setDesktopNoticeOpen(false);
+                }}
+              >
+                Copy App Link
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                style={{ padding: "0.75rem 1.25rem" }}
+                onClick={() => setDesktopNoticeOpen(false)}
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

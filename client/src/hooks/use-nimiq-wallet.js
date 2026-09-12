@@ -265,6 +265,14 @@ export function useNimiqWallet() {
     }
   }, []);
 
+  // Detect if running inside Nimiq Pay mobile WebView on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && Boolean(window.nimiqPay)) {
+      setIsNimiqPay(true);
+      getSdkProvider();
+    }
+  }, [getSdkProvider]);
+
   // Check stored address on mount
   useEffect(() => {
     const stored = getStoredWalletAddress();
@@ -481,31 +489,38 @@ export function useNimiqWallet() {
       // 3. Try Nimiq Hub Checkout (Desktop / Browser)
       const hub = getHubApi();
       if (hub && typeof hub.checkout === "function") {
-        const checkoutRes = await hub.checkout({
-          appName: "NimStreak",
-          recipient: targetRecipient,
-          value: valueLuna,
-          fee: 0,
-          extraData: message || undefined,
-        });
+        try {
+          const checkoutRes = await hub.checkout({
+            appName: "NimStreak",
+            recipient: targetRecipient,
+            value: valueLuna,
+            fee: 0,
+            extraData: message || undefined,
+          });
 
-        const hash =
-          checkoutRes?.hash ||
-          checkoutRes?.transactionHash ||
-          checkoutRes?.serializedTx;
+          const hash =
+            checkoutRes?.hash ||
+            checkoutRes?.transactionHash ||
+            checkoutRes?.serializedTx;
 
-        if (hash) {
-          const cleanHash = String(hash).trim();
-          const hubSender = checkoutRes?.address || checkoutRes?.account?.address;
-          const finalSender = hubSender && isNimiqAddress(hubSender)
-            ? formatNimiqAddress(hubSender)
-            : walletAddress;
-          return { hash: cleanHash, sender: finalSender };
+          if (hash) {
+            const cleanHash = String(hash).trim();
+            const hubSender = checkoutRes?.address || checkoutRes?.account?.address;
+            const finalSender = hubSender && isNimiqAddress(hubSender)
+              ? formatNimiqAddress(hubSender)
+              : walletAddress;
+            return { hash: cleanHash, sender: finalSender };
+          }
+        } catch (hubErr) {
+          console.warn("[useNimiqWallet] Nimiq Hub checkout on desktop:", hubErr?.message || hubErr);
+          throw new Error(
+            "Nimiq Pay Mobile App required for staking transactions. Real on-chain habit staking must be approved inside the Nimiq Pay mobile environment. Please open NimStreak inside Nimiq Pay to stake."
+          );
         }
       }
 
       throw new Error(
-        "Nimiq payment provider not available. Please open inside Nimiq Pay or connect a Nimiq wallet to stake."
+        "Nimiq Pay Mobile App required for staking transactions. Real on-chain habit staking must be approved inside the Nimiq Pay mobile environment. Please open NimStreak inside Nimiq Pay to stake."
       );
     },
     [getSdkProvider, getNimiqProvider, fetchBalance, walletAddress]

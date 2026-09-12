@@ -346,7 +346,7 @@ app.post("/api/challenges/:id/join", async (req, res) => {
     if (!challenge) {
       return res.status(404).json({ error: "Challenge not found" });
     }
-    if (challenge.status !== "active") {
+    if (challenge.status !== "active" || db.isChallengeExpired(challenge)) {
       return res.status(400).json({ error: "Cannot join an inactive challenge" });
     }
 
@@ -421,7 +421,7 @@ app.post("/api/challenges/join-by-code", async (req, res) => {
     if (!challenge) {
       return res.status(404).json({ error: "Invalid invite code. Challenge not found." });
     }
-    if (challenge.status !== "active") {
+    if (challenge.status !== "active" || db.isChallengeExpired(challenge)) {
       return res.status(400).json({ error: "This challenge is no longer active" });
     }
 

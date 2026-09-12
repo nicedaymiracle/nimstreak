@@ -347,7 +347,40 @@ export async function awardBadge(walletAddress, badgeType, challengeId = null) {
 }
 
 // ── Challenges ───────────────────────────────────────────────────────────────
-export async function getChallenges({ status, category, type, search } = {}) {
+
+export function isChallengeExpired(challenge, now = new Date()) {
+  if (!challenge) return true;
+
+  if (challenge.ends_at) {
+    const end = new Date(challenge.ends_at);
+    if (!isNaN(end.getTime())) {
+      return end.getTime() <= now.getTime();
+    }
+  }
+
+  const startTime = challenge.starts_at || challenge.created_at;
+  const duration = Number(challenge.duration_days);
+  if (startTime && !isNaN(duration) && duration > 0) {
+    const start = new Date(startTime);
+    if (!isNaN(start.getTime())) {
+      return start.getTime() + duration * 86400000 <= now.getTime();
+    }
+  }
+
+  return false;
+}
+
+export function isChallengeActive(challenge, now = new Date()) {
+  if (!challenge) return false;
+  if (challenge.status !== "active") return false;
+  if (isChallengeExpired(challenge, now)) return false;
+  return true;
+}
+
+export async function getChallenges({ status = "active", category, type, search } = {}) {
+  const filterActiveOnly = status === "active";
+  const now = new Date();
+
   if (isFirestoreConnected && dbInstance) {
     try {
       let q = dbInstance.collection("challenges");
@@ -356,7 +389,14 @@ export async function getChallenges({ status, category, type, search } = {}) {
       if (type && type !== "all") q = q.where("type", "==", type.toLowerCase());
 
       const snap = await q.get();
-      const allChallenges = snap.docs.map((d) => d.data());
+      let allChallenges = snap.docs.map((d) => d.data());
+
+      if (filterActiveOnly) {
+        allChallenges = allChallenges.filter((c) => isChallengeActive(c, now));
+      } else if (status && status !== "all") {
+        allChallenges = allChallenges.filter((c) => c.status === status);
+      }
+
       allChallenges.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
       // Fetch participants to enrich with counts
@@ -367,7 +407,11 @@ export async function getChallenges({ status, category, type, search } = {}) {
         .filter((c) => {
           if (!search) return true;
           const s = search.toLowerCase();
-          return (c.title || "").toLowerCase().includes(s) || (c.description || "").toLowerCase().includes(s);
+          return (
+            (c.title || "").toLowerCase().includes(s) ||
+            (c.description || "").toLowerCase().includes(s) ||
+            (c.invite_code || "").toLowerCase() === s
+          );
         })
         .map((c) => {
           const cParts = participants.filter((p) => p.challenge_id === c.id);
@@ -390,13 +434,21 @@ export async function getChallenges({ status, category, type, search } = {}) {
     }
   }
 
-  const list = Array.from(memoryStore.challenges.values()).filter((c) => {
-    if (status && status !== "all" && c.status !== status) return false;
-    if (category && category !== "all" && c.category !== category.toLowerCase()) return false;
-    if (type && type !== "all" && c.type !== type.toLowerCase()) return false;
+  let list = Array.from(memoryStore.challenges.values()).filter((c) => {
+    if (filterActiveOnly) {
+      if (!isChallengeActive(c, now)) return false;
+    } else if (status && status !== "all" && c.status !== status) {
+      return false;
+    }
+    if (category && category !== "all" && (c.category || "").toLowerCase() !== category.toLowerCase()) return false;
+    if (type && type !== "all" && (c.type || "").toLowerCase() !== type.toLowerCase()) return false;
     if (search) {
       const s = search.toLowerCase();
-      return (c.title || "").toLowerCase().includes(s) || (c.description || "").toLowerCase().includes(s);
+      return (
+        (c.title || "").toLowerCase().includes(s) ||
+        (c.description || "").toLowerCase().includes(s) ||
+        (c.invite_code || "").toLowerCase() === s
+      );
     }
     return true;
   });
@@ -1313,7 +1365,7 @@ export async function evaluateDailyMissedCheckins() {
 }
 
 export async function evaluateEndedChallenges() {
-  const nowIso = new Date().toISOString();
+  const now = new Date();
   let endedList = [];
 
   if (isFirestoreConnected && dbInstance) {
@@ -1321,15 +1373,14 @@ export async function evaluateEndedChallenges() {
       const snap = await dbInstance
         .collection("challenges")
         .where("status", "==", "active")
-        .where("ends_at", "<=", nowIso)
         .get();
-      endedList = snap.docs.map((d) => d.data());
+      endedList = snap.docs.map((d) => d.data()).filter((c) => isChallengeExpired(c, now));
     } catch (err) {
       console.warn("[firestore:evaluateEndedChallenges] error:", err.message);
     }
   } else {
     endedList = Array.from(memoryStore.challenges.values()).filter(
-      (c) => c.status === "active" && new Date(c.ends_at) <= new Date()
+      (c) => c.status === "active" && isChallengeExpired(c, now)
     );
   }
 
@@ -1392,5 +1443,7 @@ export default {
   getChallengeLeaderboard,
   evaluateDailyMissedCheckins,
   evaluateEndedChallenges,
+  isChallengeExpired,
+  isChallengeActive,
   normalizeAddress,
 };

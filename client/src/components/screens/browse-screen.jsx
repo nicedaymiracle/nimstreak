@@ -23,13 +23,20 @@ export function BrowseScreen({
   }, [initialInviteCode]);
 
   const filteredChallenges = useMemo(() => {
+    const now = new Date();
     return challenges.filter((c) => {
+      // Exclude completed, inactive, abandoned, or expired challenges from active discovery
+      if (c.status && c.status !== "active") return false;
+      if (c.ends_at && new Date(c.ends_at).getTime() <= now.getTime()) return false;
+
       const matchCat =
         selectedCategory === "all" || (c.category || "").toLowerCase() === selectedCategory.toLowerCase();
+      const s = searchQuery.toLowerCase().trim();
       const matchSearch =
-        !searchQuery ||
-        (c.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+        !s ||
+        (c.title || "").toLowerCase().includes(s) ||
+        (c.description || "").toLowerCase().includes(s) ||
+        (c.invite_code || "").toLowerCase() === s;
       return matchCat && matchSearch;
     });
   }, [challenges, selectedCategory, searchQuery]);
