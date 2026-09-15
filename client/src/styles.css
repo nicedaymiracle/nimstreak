@@ -2544,6 +2544,25 @@ body:has(.welcome-screen-wrapper) {
   touch-action: manipulation;
 }
 
+/* Join CTA Card in Challenge Detail */
+.join-cta-card {
+  margin-bottom: 1.5rem;
+}
+
+.join-cta-card__content h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.4rem;
+}
+
+.join-cta-card__content p {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
 /* Accountability & Financial Mechanics Card */
 .mechanics-info-card {
   background: rgba(14, 18, 30, 0.6);
@@ -5645,6 +5664,9 @@ body:has(.welcome-screen-wrapper) {
 
 /* Responsive adjustments */
 @media (max-width: 480px) {
+  .join-cta-card {
+    margin-bottom: 1.25rem;
+  }
   .example-math-flow {
     flex-direction: column;
     gap: 0.35rem;

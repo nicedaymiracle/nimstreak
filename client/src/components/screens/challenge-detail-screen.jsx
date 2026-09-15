@@ -599,7 +599,7 @@ export function ChallengeDetailScreen({
             <h3>Ready to take on this challenge?</h3>
             <p>
               Stake <strong>{challenge.stake_nim} NIM</strong> to join. Complete all {duration} days
-              to reclaim your stake plus your share of any forfeited stakes!
+              to get your stake back.
             </p>
           </div>
 
