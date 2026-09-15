@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Pencil } from "lucide-react";
 import { getSavedUsername, saveCustomUsername } from "../../utils/username.js";
 
 export function UsernameModal({ walletAddress, isOpen, onClose, onSaveSuccess, className = "" }) {
@@ -58,8 +59,9 @@ export function UsernameModal({ walletAddress, isOpen, onClose, onSaveSuccess, c
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "700", color: "var(--interactive-ink)" }}>
-            ✏️ Set Display Username
+          <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "700", color: "var(--interactive-ink)", display: "flex", alignItems: "center", gap: "8px" }}>
+            <Pencil size={18} />
+            Set Display Username
           </h3>
           <button
             type="button"

@@ -1,5 +1,18 @@
 import { useEffect, useState, useMemo } from "react";
 import { MetricCard, PlayerIdentity, GameLoader, UsernameModal, AvatarCircle } from "../ui";
+import {
+  Pencil,
+  Zap,
+  Trophy,
+  Target,
+  Flame,
+  BarChart3,
+  Activity,
+  Volume2,
+  Eye,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
 import { getSavedUsername, getPlayerStats, getLocalDailyLeaderboard } from "../../utils/username.js";
 
 import {
@@ -283,7 +296,7 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
                         style={{ padding: "3px 8px", fontSize: "0.74rem", minHeight: "26px", borderRadius: "8px" }}
                         onClick={() => setModalOpen(true)}
                       >
-                        ✏️ Edit Alias
+                        <Pencil size={12} className="inline-icon" /> Edit Alias
                       </button>
                     )}
                   </div>
@@ -296,7 +309,7 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
                     </span>
                     {connected && (
                       <span style={{ fontSize: "0.72rem", background: "var(--surface-sunk)", padding: "0.25rem 0.5rem", borderRadius: "6px", color: "var(--ink-2)", border: "1px solid var(--rule)" }}>
-                        🟢 Mainnet Synced
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", display: "inline-block", marginRight: 6 }} /> Mainnet Synced
                       </span>
                     )}
                   </div>
@@ -310,7 +323,7 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
                     onClick={onConnectWallet}
                     style={{ width: "100%", minHeight: "44px", fontSize: "0.92rem", fontWeight: 800, borderRadius: "12px" }}
                   >
-                    ⚡ Connect Nimiq Wallet
+                    <Zap size={14} className="inline-icon" /> Connect Nimiq Wallet
                   </button>
 
                   <button
@@ -372,11 +385,11 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
             {/* Milestones & Badges Card */}
             <section className="settings-card">
               <h3 className="settings-card__title">
-                <span>🏆</span> Milestones & Badges
+                <Trophy size={16} className="text-gold inline-icon" /> Milestones & Badges
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.65rem", background: "var(--surface-sunk)", borderRadius: "12px", border: "1px solid var(--rule)" }}>
-                  <span style={{ fontSize: "1.35rem" }}>⚡</span>
+                  <Zap size={22} className="text-gold" />
                   <div>
                     <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink)", display: "block" }}>Rapid Solver</span>
                     <span style={{ fontSize: "0.7rem", color: "var(--ink-muted)" }}>{stats.dailyCompleted > 0 ? `${stats.dailyCompleted} daily solved` : "Play daily round"}</span>
@@ -384,7 +397,7 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.65rem", background: "var(--surface-sunk)", borderRadius: "12px", border: "1px solid var(--rule)" }}>
-                  <span style={{ fontSize: "1.35rem" }}>🎯</span>
+                  <Target size={22} className="text-gold" />
                   <div>
                     <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink)", display: "block" }}>Master Solver</span>
                     <span style={{ fontSize: "0.7rem", color: "var(--ink-muted)" }}>{stats.bestWord && stats.bestWord !== "-" ? `${stats.bestWord}` : "Find top words"}</span>
@@ -392,7 +405,7 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.65rem", background: "var(--surface-sunk)", borderRadius: "12px", border: "1px solid var(--rule)" }}>
-                  <span style={{ fontSize: "1.35rem" }}>🔥</span>
+                  <Flame size={22} className="text-gold" />
                   <div>
                     <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink)", display: "block" }}>Streak Veteran</span>
                     <span style={{ fontSize: "0.7rem", color: "var(--ink-muted)" }}>{stats.winStreak > 0 ? `${stats.winStreak} win streak` : "Win matches in row"}</span>
@@ -415,7 +428,7 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
             {/* Player Lifetime Stats */}
             <section className="settings-card">
               <h3 className="settings-card__title">
-                <span>📊</span> Career Statistics
+                <BarChart3 size={16} className="text-gold inline-icon" /> Career Statistics
               </h3>
               <div className="profile-stats-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
                 <div style={{ background: "var(--surface-sunk)", padding: "0.85rem", borderRadius: "12px", border: "1px solid var(--rule)", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
@@ -433,7 +446,7 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
                     Win Streak
                   </span>
                   <strong style={{ fontSize: "1.35rem", color: "var(--interactive-ink)", fontWeight: 900, fontFamily: "var(--font-mono)" }}>
-                    {stats.winStreak} 🔥
+                    {stats.winStreak} <Flame size={13} className="text-gold inline-icon" />
                   </strong>
                   <small style={{ fontSize: "0.7rem", color: "var(--ink-muted)" }}>Current run</small>
                 </div>
@@ -463,7 +476,7 @@ export function ProfileScreen({ walletAddress, onConnectWallet, onSetManualAddre
             {/* Performance Analytics Card */}
             <section className="settings-card" style={{ background: "var(--surface-sunk)", border: "1px solid var(--rule)" }}>
               <h3 className="settings-card__title">
-                <span>⚡</span> Performance Snapshot
+                <Activity size={16} className="text-gold inline-icon" /> Performance Snapshot
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.6rem", textAlign: "center" }}>
                 <div style={{ padding: "0.6rem 0.4rem", background: "var(--surface)", borderRadius: "10px", border: "1px solid var(--rule)" }}>
@@ -546,7 +559,7 @@ export function SettingsScreen({ settings, onToggle, onBack }) {
             {/* Audio & Haptics */}
             <section className="settings-card">
               <h3 className="settings-card__title">
-                <span>🔊</span> Audio & Feedback
+                <Volume2 size={16} className="text-gold inline-icon" /> Audio & Feedback
               </h3>
 
               <div className="settings-item">
@@ -611,7 +624,7 @@ export function SettingsScreen({ settings, onToggle, onBack }) {
             {/* Accessibility & Visuals */}
             <section className="settings-card">
               <h3 className="settings-card__title">
-                <span>👁️</span> Accessibility & Display
+                <Eye size={16} className="text-gold inline-icon" /> Accessibility & Display
               </h3>
 
               <div className="settings-item">
@@ -659,7 +672,7 @@ export function SettingsScreen({ settings, onToggle, onBack }) {
             {/* Privacy & Profile */}
             <section className="settings-card">
               <h3 className="settings-card__title">
-                <span>🔒</span> Privacy & Profile
+                <Lock size={16} className="text-gold inline-icon" /> Privacy & Profile
               </h3>
 
               <div className="settings-item">
@@ -704,7 +717,7 @@ export function SettingsScreen({ settings, onToggle, onBack }) {
             {/* Network & Info */}
             <section className="settings-card" style={{ background: "var(--surface-sunk)", border: "1px solid var(--rule)" }}>
               <h3 className="settings-card__title">
-                <span>⚡</span> Protocol & Network Info
+                <ShieldCheck size={16} className="text-gold inline-icon" /> Protocol & Network Info
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.82rem" }}>
                 <div>

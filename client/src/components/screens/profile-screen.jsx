@@ -1,5 +1,17 @@
 import React, { useState } from "react";
 import { NimiqIdenticon } from "../ui/avatar-circle.jsx";
+import {
+  ShieldCheck,
+  Pencil,
+  Copy,
+  Check,
+  Flame,
+  Zap,
+  Coins,
+  Lock,
+  Trophy,
+  XCircle,
+} from "lucide-react";
 import { BADGE_DEFINITIONS } from "../ui/streak-stickers.jsx";
 import { shortenWalletAddress } from "../../utils/ui-helpers.js";
 
@@ -20,7 +32,7 @@ export function ProfileScreen({
     return (
       <div className="screen-container">
         <div className="auth-gate-card">
-          <span className="auth-gate-card__icon">🛡️</span>
+          <span className="auth-gate-card__icon"><ShieldCheck size={36} className="text-gold" /></span>
           <h2>Connect Your Wallet</h2>
           <p>Connect your Nimiq account to view your global ranking, badges, and habit stats.</p>
           <button
@@ -108,7 +120,7 @@ export function ProfileScreen({
                 title="Edit display name"
                 aria-label="Edit display name"
               >
-                ✏️
+                <Pencil size={12} />
               </button>
             </div>
           )}
@@ -122,7 +134,7 @@ export function ProfileScreen({
           >
             <span className="profile-address-tag">Profile ID:</span>
             <span className="profile-address-val">{shortenWalletAddress(walletAddress, 6, 6)}</span>
-            <span className="copy-badge">{copied ? "Copied! ✅" : "📋"}</span>
+            <span className="copy-badge">{copied ? <span style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}>Copied! <Check size={11} /></span> : <Copy size={12} />}</span>
           </div>
         </div>
 
@@ -145,37 +157,37 @@ export function ProfileScreen({
         </div>
         <div className="matrix-grid">
           <div className="matrix-card">
-            <span className="matrix-card__icon">🔥</span>
+            <span className="matrix-card__icon"><Flame size={18} className="text-gold" /></span>
             <span className="matrix-card__val">{profile.current_active_streak || 0}</span>
             <span className="matrix-card__lbl">Active Streak</span>
           </div>
 
           <div className="matrix-card">
-            <span className="matrix-card__icon">⚡</span>
+            <span className="matrix-card__icon"><Zap size={18} className="text-gold" /></span>
             <span className="matrix-card__val">{profile.longest_streak_ever || 0}</span>
             <span className="matrix-card__lbl">Best Streak Ever</span>
           </div>
 
           <div className="matrix-card">
-            <span className="matrix-card__icon">💎</span>
+            <span className="matrix-card__icon"><Coins size={18} className="text-gold" /></span>
             <span className="matrix-card__val">+{parseFloat(profile.total_nim_earned || 0).toFixed(1)}</span>
             <span className="matrix-card__lbl">NIM Won</span>
           </div>
 
           <div className="matrix-card">
-            <span className="matrix-card__icon">🔒</span>
+            <span className="matrix-card__icon"><Lock size={18} className="text-gold" /></span>
             <span className="matrix-card__val">{parseFloat(profile.total_nim_staked || 0).toFixed(1)}</span>
             <span className="matrix-card__lbl">Total Staked</span>
           </div>
 
           <div className="matrix-card">
-            <span className="matrix-card__icon">🏆</span>
+            <span className="matrix-card__icon"><Trophy size={18} className="text-gold" /></span>
             <span className="matrix-card__val">{profile.completed_challenges || 0}</span>
             <span className="matrix-card__lbl">Completed</span>
           </div>
 
           <div className="matrix-card">
-            <span className="matrix-card__icon">💀</span>
+            <span className="matrix-card__icon"><XCircle size={18} className="text-rose" /></span>
             <span className="matrix-card__val">{profile.failed_challenges || 0}</span>
             <span className="matrix-card__lbl">Forfeited</span>
           </div>
@@ -237,7 +249,7 @@ export function ProfileScreen({
                 <div className="recent-row__info">
                   <h4>{r.title}</h4>
                   <span className="recent-row__sub">
-                    Streak: 🔥 {r.current_streak} days · {r.stake_amount} NIM
+                    Streak: {r.current_streak} days · {r.stake_amount} NIM
                   </span>
                 </div>
                 <span
@@ -249,7 +261,7 @@ export function ProfileScreen({
                       : "recent-row__status--active"
                   }`}
                 >
-                  {r.status === "failed" ? "💀 Forfeited" : r.status === "completed" ? "🏆 Won" : "🔥 Active"}
+                  {r.status === "failed" ? <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><XCircle size={12} className="text-rose" /> Forfeited</span> : r.status === "completed" ? <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Trophy size={12} className="text-gold" /> Won</span> : <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Flame size={12} className="text-gold" /> Active</span>}
                 </span>
               </div>
             ))}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Trophy, Zap } from "lucide-react";
 import { API_BASE_URL } from "../../config/app-config.js";
 
 /**
@@ -62,7 +63,7 @@ export function TotalPayoutsBanner({ className = "" }) {
               boxShadow: "0 2px 8px oklch(0.5849 0.1438 244.29 / 0.15)",
             }}
           >
-            🏆
+            <Trophy size={20} style={{ color: "var(--interactive-ink)" }} />
           </div>
 
           <div>
@@ -118,7 +119,7 @@ export function TotalPayoutsBanner({ className = "" }) {
             flexWrap: "wrap",
           }}
         >
-          <span style={{ color: "var(--good)", fontSize: "0.85rem" }}>⚡</span>
+          <Zap size={14} style={{ color: "var(--good)" }} />
           <span>Real-Time Onchain Smart Contract</span>
         </div>
       </div>

@@ -1,6 +1,19 @@
 import React, { useState } from "react";
 import { CATEGORIES } from "../ui/streak-stickers.jsx";
 import { DURATION_OPTIONS, MIN_STAKE_NIM, DEFAULT_STAKE_NIM } from "../../config/app-config.js";
+import { WorkedExampleCard } from "../ui/worked-example-card.jsx";
+import {
+  Zap,
+  FileText,
+  Camera,
+  Coins,
+  ShieldCheck,
+  User,
+  Globe,
+  Users,
+  Clock,
+  ArrowRight,
+} from "lucide-react";
 
 export function CreateChallengeScreen({
   walletAddress,
@@ -148,7 +161,7 @@ export function CreateChallengeScreen({
                 className={`checkin-type-btn ${checkinType === "tap" ? "checkin-type-btn--active" : ""}`}
                 onClick={() => setCheckinType("tap")}
               >
-                <span className="checkin-type-btn__icon">⚡</span>
+                <span className="checkin-type-btn__icon"><Zap size={16} className="text-gold" /></span>
                 <span>1-Tap Check-in</span>
               </button>
               <button
@@ -156,7 +169,7 @@ export function CreateChallengeScreen({
                 className={`checkin-type-btn ${checkinType === "text" ? "checkin-type-btn--active" : ""}`}
                 onClick={() => setCheckinType("text")}
               >
-                <span className="checkin-type-btn__icon">📝</span>
+                <span className="checkin-type-btn__icon"><FileText size={16} className="text-gold" /></span>
                 <span>Text Journal</span>
               </button>
               <button
@@ -164,7 +177,7 @@ export function CreateChallengeScreen({
                 className={`checkin-type-btn ${checkinType === "photo" ? "checkin-type-btn--active" : ""}`}
                 onClick={() => setCheckinType("photo")}
               >
-                <span className="checkin-type-btn__icon">📸</span>
+                <span className="checkin-type-btn__icon"><Camera size={16} className="text-gold" /></span>
                 <span>Photo Proof</span>
               </button>
             </div>
@@ -236,14 +249,14 @@ export function CreateChallengeScreen({
           {/* NIM Stake Preview Banner */}
           <div className="stake-preview-banner">
             <div className="stake-preview-banner__main">
-              <span className="stake-preview-banner__icon" aria-hidden="true">💎</span>
+              <span className="stake-preview-banner__icon" aria-hidden="true"><Coins size={20} className="text-gold" /></span>
               <div className="stake-preview-banner__details">
                 <span className="stake-preview-banner__label">Locked On-Chain</span>
                 <span className="stake-preview-banner__val">{Number(stakeNim || 0).toFixed(1)} NIM</span>
               </div>
             </div>
             <div className="stake-preview-banner__guarantee">
-              <span className="stake-preview-banner__shield" aria-hidden="true">🛡️</span>
+              <span className="stake-preview-banner__shield" aria-hidden="true"><ShieldCheck size={16} className="text-emerald" /></span>
               <span className="stake-preview-banner__guarantee-text">100% Refundable</span>
             </div>
           </div>
@@ -266,7 +279,7 @@ export function CreateChallengeScreen({
                 className={`mode-btn ${type === "solo" ? "mode-btn--active" : ""}`}
                 onClick={() => setType("solo")}
               >
-                <span className="mode-btn__icon">👤</span>
+                <span className="mode-btn__icon"><User size={20} className="text-gold" /></span>
                 <span className="mode-btn__title">Solo</span>
                 <span className="mode-btn__sub">You vs yourself</span>
               </button>
@@ -276,7 +289,7 @@ export function CreateChallengeScreen({
                 className={`mode-btn ${type === "public" ? "mode-btn--active" : ""}`}
                 onClick={() => setType("public")}
               >
-                <span className="mode-btn__icon">🌐</span>
+                <span className="mode-btn__icon"><Globe size={20} className="text-gold" /></span>
                 <span className="mode-btn__title">Public</span>
                 <span className="mode-btn__sub">Open community</span>
               </button>
@@ -286,7 +299,7 @@ export function CreateChallengeScreen({
                 className={`mode-btn ${type === "group" ? "mode-btn--active" : ""}`}
                 onClick={() => setType("group")}
               >
-                <span className="mode-btn__icon">👥</span>
+                <span className="mode-btn__icon"><Users size={20} className="text-gold" /></span>
                 <span className="mode-btn__title">Group</span>
                 <span className="mode-btn__sub">Invite code only</span>
               </button>
@@ -299,32 +312,54 @@ export function CreateChallengeScreen({
           <div className="create-summary-header">
             <span className="create-summary-title">Challenge Summary</span>
             <span className="create-summary-type-tag">
-              {type === "solo" ? "👤 Solo Mode" : type === "group" ? "👥 Group Mode" : "🌐 Public Mode"}
+              {type === "solo" ? "Solo Mode" : type === "group" ? "Group Mode" : "Public Mode"}
             </span>
           </div>
 
           <div className="create-summary-pills-row">
             <div className="create-summary-pill">
-              <span className="create-summary-pill__icon">⏱️</span>
+              <span className="create-summary-pill__icon"><Clock size={14} className="text-gold" /></span>
               <span className="create-summary-pill__text">{durationDays} Days</span>
             </div>
             <div className="create-summary-pill create-summary-pill--stake">
-              <span className="create-summary-pill__icon">💎</span>
+              <span className="create-summary-pill__icon"><Coins size={14} className="text-gold" /></span>
               <span className="create-summary-pill__text">{Number(stakeNim || 0).toFixed(1)} NIM Stake</span>
             </div>
           </div>
 
           <div className="create-summary-body">
             <p className="create-summary-desc">
-              Finish your streak to reclaim your {Number(stakeNim || 0).toFixed(1)} NIM stake
-              {type !== "solo" ? " + share of forfeited stakes + NimStreak bonus." : " + NimStreak bonus."}
+              Complete your challenge and get your original {Number(stakeNim || 0).toFixed(1)} NIM stake back.
+              {type !== "solo" ? " If other participants quit, their forfeited stakes form a reward pool shared equally among successful finishers." : " Solo challenges return 100% of your stake upon completion."}
             </p>
 
             <p className="create-summary-sub">
               {type === "solo"
                 ? "Solo habit challenges return 100% of your stake upon completing all daily check-ins."
-                : "Finishers share 100% of forfeited stakes with no treasury fee, plus an additional NimStreak bonus of up to 50% (max 5 NIM)."}
+                : "Finishers share 100% of forfeited stakes with zero treasury fee. NimStreak may also provide a separate bonus of up to 50% of the stake (max 5 NIM per finisher, 20 NIM challenge cap), scaled proportionally when required."}
             </p>
+
+            {/* Expandable Worked Example Accordion */}
+            {type !== "solo" && (
+              <WorkedExampleCard
+                isCollapsible={true}
+                defaultExpanded={false}
+                showBonusNote={true}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Nimiq Pay Authorization Guidance */}
+        <div className="payment-approval-guidance">
+          <div className="payment-guidance-step">
+            <ShieldCheck size={18} className="text-gold flex-shrink-0" aria-hidden="true" />
+            <div>
+              <div className="guidance-title">Payment Authorization via Nimiq Pay</div>
+              <p className="guidance-desc">
+                Nimiq Pay will open to securely authorize your {Number(stakeNim || 0).toFixed(1)} NIM stake. Your NimStreak profile remains connected to your account, while Nimiq Pay handles transaction approval and determines the wallet account used. The challenge is created once verified on-chain.
+              </p>
+            </div>
           </div>
         </div>
 

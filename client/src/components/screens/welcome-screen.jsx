@@ -1,5 +1,18 @@
 import React, { useState } from "react";
 import { FloatingHabitsBackground } from "../ui/floating-habits-bg.jsx";
+import { WorkedExampleCard } from "../ui/worked-example-card.jsx";
+import {
+  Target,
+  Lock,
+  Zap,
+  Trophy,
+  Info,
+  Flame,
+  ShieldCheck,
+  Link2,
+  ArrowRight,
+  Wallet,
+} from "lucide-react";
 
 // Real NimStreak Habit & Challenge Presets for Desktop Continuous Upward Stream
 const REAL_CHALLENGE_CARDS = [
@@ -481,9 +494,16 @@ export function WelcomeScreen({
                   Build daily habits, stake NIM, and become a better you on the blockchain.
                 </p>
 
+                {/* 10-Second Visual Worked Example (Pre-Sign-In) */}
+                <WorkedExampleCard
+                  defaultExpanded={true}
+                  isCollapsible={true}
+                  showBonusNote={true}
+                />
+
                 {inviteHint && (
                   <div className="invite-notice-pill">
-                    <span>🔗 {inviteHint}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}><Link2 size={14} className="text-gold" aria-hidden="true" /> {inviteHint}</span>
                   </div>
                 )}
 
@@ -506,7 +526,7 @@ export function WelcomeScreen({
                     </svg>
                   </span>
                   <span className="btn-pay-text">
-                    {isConnecting ? "Connecting Nimiq Pay... ⏳" : "Continue with Nimiq Pay"}
+                    {isConnecting ? "Connecting Nimiq Pay..." : "Continue with Nimiq Pay"}
                   </span>
                   <span className="btn-pay-arrow" aria-hidden="true">→</span>
                 </button>
@@ -533,6 +553,17 @@ export function WelcomeScreen({
                   <span>Use Nimiq Wallet Instead</span>
                 </button>
 
+                {/* Nimiq Pay vs Wallet Clarification */}
+                <div className="nimiq-pay-clarification-card">
+                  <ShieldCheck size={18} className="nimiq-pay-clarification-icon" aria-hidden="true" />
+                  <div>
+                    <div className="nimiq-pay-clarification-title">Nimiq Pay & Account Security</div>
+                    <p className="nimiq-pay-clarification-desc">
+                      NimStreak uses Nimiq Pay to securely approve NIM transactions. Your NimStreak profile stays connected to your account, while Nimiq Pay handles transaction approval and determines the wallet account used for the payment.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Learn More Toggle */}
                 <div className="welcome-learn-more-wrap">
                   <button
@@ -540,7 +571,7 @@ export function WelcomeScreen({
                     className="welcome-learn-more-btn"
                     onClick={() => setShowDetails(true)}
                   >
-                    <span className="info-icon" aria-hidden="true">ℹ️</span>
+                    <span className="info-icon" aria-hidden="true"><Info size={15} /></span>
                     <span>What is NimStreak? Learn More</span>
                   </button>
                 </div>
@@ -571,7 +602,7 @@ export function WelcomeScreen({
                   <div className="onboarding-step-card">
                     <div className="step-card__header">
                       <span className="step-card__num">01</span>
-                      <span className="step-card__icon" aria-hidden="true">🎯</span>
+                      <span className="step-card__icon" aria-hidden="true"><Target size={20} className="text-gold" /></span>
                     </div>
                     <h4 className="step-card__title">Choose a habit</h4>
                     <p className="step-card__desc">Pick fitness, coding, health, or custom daily routines.</p>
@@ -580,7 +611,7 @@ export function WelcomeScreen({
                   <div className="onboarding-step-card">
                     <div className="step-card__header">
                       <span className="step-card__num">02</span>
-                      <span className="step-card__icon" aria-hidden="true">🔒</span>
+                      <span className="step-card__icon" aria-hidden="true"><Lock size={20} className="text-gold" /></span>
                     </div>
                     <h4 className="step-card__title">Stake NIM</h4>
                     <p className="step-card__desc">Lock your stake on-chain with Nimiq. Skin in the game.</p>
@@ -589,7 +620,7 @@ export function WelcomeScreen({
                   <div className="onboarding-step-card">
                     <div className="step-card__header">
                       <span className="step-card__num">03</span>
-                      <span className="step-card__icon" aria-hidden="true">⚡</span>
+                      <span className="step-card__icon" aria-hidden="true"><Zap size={20} className="text-gold" /></span>
                     </div>
                     <h4 className="step-card__title">Check in daily</h4>
                     <p className="step-card__desc">Check in every day before midnight UTC to keep your streak.</p>
@@ -598,7 +629,7 @@ export function WelcomeScreen({
                   <div className="onboarding-step-card">
                     <div className="step-card__header">
                       <span className="step-card__num">04</span>
-                      <span className="step-card__icon" aria-hidden="true">🏆</span>
+                      <span className="step-card__icon" aria-hidden="true"><Trophy size={20} className="text-gold" /></span>
                     </div>
                     <h4 className="step-card__title">Finish streak</h4>
                     <p className="step-card__desc">Get your stake back plus a share of the forfeited bonus pool!</p>
@@ -614,7 +645,7 @@ export function WelcomeScreen({
                       handlePrimaryConnect();
                     }}
                   >
-                    <span className="btn-pay-text">Sign In to Play 🔥</span>
+                    <span className="btn-pay-text" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}>Sign In to Play <Flame size={16} className="text-gold inline-icon" aria-hidden="true" /></span>
                     <span className="btn-pay-arrow" aria-hidden="true">→</span>
                   </button>
 

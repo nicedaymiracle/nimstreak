@@ -1,5 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CategoryBadge } from "../ui/streak-stickers.jsx";
+import { WorkedExampleCard } from "../ui/worked-example-card.jsx";
+import {
+  Users,
+  User,
+  Globe,
+  Trophy,
+  XCircle,
+  CheckCircle2,
+  Share2,
+  Flame,
+  Coins,
+  ShieldCheck,
+  Zap,
+  Medal,
+  Sparkles,
+} from "lucide-react";
 import { NimiqIdenticon } from "../ui/avatar-circle.jsx";
 import { shortenWalletAddress, shortenHash } from "../../utils/ui-helpers.js";
 import {
@@ -312,7 +328,7 @@ export function ChallengeDetailScreen({
         <div className="challenge-detail-tags">
           <CategoryBadge category={challenge.category} />
           <span className="challenge-mode-badge">
-            {challenge.type === "group" ? "👥 Group" : challenge.type === "solo" ? "👤 Solo" : "🌐 Public"}
+            {challenge.type === "group" ? <><Users size={12} className="inline-icon" /> Group</> : challenge.type === "solo" ? <><User size={12} className="inline-icon" /> Solo</> : <><Globe size={12} className="inline-icon" /> Public</>}
           </span>
         </div>
       </header>
@@ -324,11 +340,11 @@ export function ChallengeDetailScreen({
           {isParticipant && (
             <div className="detail-participant-status">
               {isCompleted ? (
-                <span className="status-pill status-pill--won">🏆 Finished & Won</span>
+                <span className="status-pill status-pill--won"><Trophy size={13} className="inline-icon" /> Finished & Won</span>
               ) : isFailed ? (
-                <span className="status-pill status-pill--forfeited">💀 Stake Forfeited</span>
+                <span className="status-pill status-pill--forfeited"><XCircle size={13} className="inline-icon" /> Stake Forfeited</span>
               ) : isCheckedInToday ? (
-                <span className="status-pill status-pill--secured">✓ Checked in today</span>
+                <span className="status-pill status-pill--secured"><CheckCircle2 size={13} className="inline-icon" /> Checked in today</span>
               ) : (
                 <span className="status-pill status-pill--pending">⏳ Check-in needed today</span>
               )}
@@ -351,7 +367,7 @@ export function ChallengeDetailScreen({
               onClick={handleShareChallenge}
               title="Share challenge invitation link"
             >
-              🔗 Share Challenge
+              <Share2 size={14} className="inline-icon" /> Share Challenge
             </button>
             {challenge.invite_code && (
               <div className="share-invite-code-row">
@@ -376,7 +392,7 @@ export function ChallengeDetailScreen({
         <div className="detail-stat-row">
           <div className="d-box">
             <span className="d-box__val" ref={streakNumRef}>
-              🔥 {currentStreak}
+              <Flame size={16} className="text-gold inline-icon" /> {currentStreak}
             </span>
             <span className="d-box__lbl">Current Streak</span>
           </div>
@@ -395,7 +411,7 @@ export function ChallengeDetailScreen({
 
           <div className="d-box">
             <span className="d-box__val" ref={bonusRef}>
-              🏆 {stats?.totalPool || 0} NIM
+              <Coins size={16} className="text-gold inline-icon" /> {stats?.totalPool || 0} NIM
             </span>
             <span className="d-box__lbl">Forfeited Pool</span>
           </div>
@@ -419,7 +435,7 @@ export function ChallengeDetailScreen({
       {/* WINNER CLAIM REWARD SECTION */}
       {isParticipant && !isFailed && isCompleted && (
         <section className="claim-reward-card">
-          <div className="claim-reward-card__icon">🏆</div>
+          <div className="claim-reward-card__icon"><Trophy size={32} className="text-gold" /></div>
           <h3 className="claim-reward-card__title">Challenge Completed! Streak Won!</h3>
           <p className="claim-reward-card__desc">
             You stayed consistent through all {duration} days. Complete your streak to reclaim your stake and earn from forfeited stakes, plus a NimStreak bonus.
@@ -474,7 +490,7 @@ export function ChallengeDetailScreen({
                 onClick={handleClaimPayout}
                 disabled={claiming}
               >
-                {claiming ? "Signing Treasury Payout..." : `💎 CLAIM ${estimatedTotalPayout} NIM`}
+                {claiming ? "Signing Treasury Payout..." : <><Coins size={16} className="inline-icon" /> CLAIM {estimatedTotalPayout} NIM</>}
               </button>
               {claimMessage && (
                 <p className="claim-reward-msg">{claimMessage}</p>
@@ -548,7 +564,7 @@ export function ChallengeDetailScreen({
               onClick={handleDailyCheckin}
               disabled={checkingIn}
             >
-              {checkingIn ? "⏳ Locking in check-in..." : "🔥 Check in today"}
+              {checkingIn ? "Locking in check-in..." : <><Flame size={16} className="inline-icon" /> Check in today</>}
             </button>
           )}
 
@@ -583,15 +599,28 @@ export function ChallengeDetailScreen({
             <h3>Ready to take on this challenge?</h3>
             <p>
               Stake <strong>{challenge.stake_nim} NIM</strong> to join. Complete all {duration} days
-              to reclaim your stake and earn from forfeited stakes, plus a NimStreak bonus!
+              to reclaim your original stake, earn your share of forfeited stakes if others quit, plus an eligible NimStreak protocol bonus!
             </p>
           </div>
+
+          <div className="payment-approval-guidance" style={{ marginTop: "0.85rem", marginBottom: "0.85rem" }}>
+            <div className="payment-guidance-step">
+              <ShieldCheck size={18} className="text-gold flex-shrink-0" aria-hidden="true" />
+              <div>
+                <div className="guidance-title">Payment Authorization via Nimiq Pay</div>
+                <p className="guidance-desc">
+                  Nimiq Pay will open to securely authorize your {challenge.stake_nim} NIM stake. Your NimStreak profile remains connected, while Nimiq Pay handles transaction approval and determines the wallet account used. You will join the challenge once verified on-chain.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <button
             type="button"
             className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
             onClick={handleJoin}
           >
-            Stake {challenge.stake_nim} NIM & Join Challenge 🔥
+            Stake {challenge.stake_nim} NIM & Join Challenge
           </button>
         </section>
       )}
@@ -599,7 +628,7 @@ export function ChallengeDetailScreen({
       {/* If User Failed */}
       {isFailed && (
         <section className="forfeit-banner">
-          <span className="forfeit-banner__icon">💀</span>
+          <span className="forfeit-banner__icon"><XCircle size={28} className="text-rose" /></span>
           <div className="forfeit-banner__text">
             <h3>Stake Forfeited</h3>
             <p>
@@ -613,16 +642,20 @@ export function ChallengeDetailScreen({
       {/* Accountability & Financial Mechanics Card */}
       <section className="mechanics-info-card">
         <h3 className="mechanics-info-card__title">Stakes & Rewards Structure</h3>
+        <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem", lineHeight: 1.5 }}>
+          Complete your challenge and get your original stake back. If other participants quit, their forfeited stakes form a reward pool shared equally among successful finishers.
+        </p>
+
         <div className="mechanics-info-grid">
           <div className="mechanics-info-item">
-            <span className="mechanics-info-item__icon">🛡️</span>
+            <span className="mechanics-info-item__icon"><ShieldCheck size={20} className="text-emerald" /></span>
             <div>
               <strong>100% Stake Protection</strong>
               <p>Check in once every 24 hours. Complete your streak to reclaim 100% of your original stake.</p>
             </div>
           </div>
           <div className="mechanics-info-item">
-            <span className="mechanics-info-item__icon">🏆</span>
+            <span className="mechanics-info-item__icon"><Trophy size={20} className="text-gold" /></span>
             <div>
               <strong>100% Forfeited Pool Share</strong>
               <p>
@@ -631,15 +664,22 @@ export function ChallengeDetailScreen({
             </div>
           </div>
           <div className="mechanics-info-item">
-            <span className="mechanics-info-item__icon">⚡</span>
+            <span className="mechanics-info-item__icon"><Zap size={20} className="text-gold" /></span>
             <div>
               <strong>NimStreak Bonus</strong>
               <p>
-                Earn an extra 50% bonus (up to 5 NIM per finisher), funded by NimStreak subject to the 20 NIM challenge bonus budget.
+                NimStreak may provide a separate bonus based on existing rules (up to 50% of original stake, max 5 NIM per finisher, challenge-level max of 20 NIM), scaled proportionally when required.
               </p>
             </div>
           </div>
         </div>
+
+        {/* Expandable Worked Example Breakdown */}
+        <WorkedExampleCard
+          isCollapsible={true}
+          defaultExpanded={false}
+          showBonusNote={false}
+        />
       </section>
 
       {/* Streak Calendar Heatmap */}
@@ -696,8 +736,9 @@ export function ChallengeDetailScreen({
               {leaderboard.length} streakers competing
             </p>
           </div>
-          <span className="pool-tally">
-            🏆 Pool: <strong>{stats?.totalPool || 0} NIM</strong>
+          <span className="pool-tally" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+            <Trophy size={13} style={{ color: "var(--color-gold)" }} />
+            <span>Pool: <strong>{stats?.totalPool || 0} NIM</strong></span>
           </span>
         </div>
 
@@ -710,7 +751,7 @@ export function ChallengeDetailScreen({
                 (item.wallet_address || "").replace(/\s+/g, "").toUpperCase() === cleanWallet ||
                 (item.profile_wallet || "").replace(/\s+/g, "").toUpperCase() === cleanWallet;
               const displayAddress = item.profile_wallet || item.wallet_address;
-              const rankIcon = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+              const rankIcon = idx === 0 ? <Medal size={16} className="text-gold" /> : idx === 1 ? <Medal size={16} style={{ color: "#CBD5E1" }} /> : idx === 2 ? <Medal size={16} style={{ color: "#CD7F32" }} /> : `#${idx + 1}`;
 
               return (
                 <div
@@ -725,7 +766,7 @@ export function ChallengeDetailScreen({
                       {isCurrentUser && <span className="me-pill">You</span>}
                     </span>
                     <span className="leaderboard-row__status">
-                      {item.status === "failed" ? "💀 Stake Lost" : `🔥 ${item.current_streak} Day Streak`}
+                      {item.status === "failed" ? <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><XCircle size={12} className="text-rose" /> Stake Lost</span> : <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Flame size={12} className="text-gold" /> {item.current_streak} Day Streak</span>}
                     </span>
                   </div>
                   <div className="leaderboard-row__checkins">

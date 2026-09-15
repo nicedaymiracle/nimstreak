@@ -13,6 +13,7 @@ import { AppBottomNav, NimiqIdenticon } from "./components/ui/index.js";
 import { useNimiqWallet } from "./hooks/use-nimiq-wallet.js";
 import { API_BASE_URL, SOCKET_SERVER_URL, DEFAULT_TREASURY_ADDRESS } from "./config/index.js";
 import { shortenWalletAddress } from "./utils/ui-helpers.js";
+import { Smartphone, X, Copy } from "lucide-react";
 
 export default function App() {
   const [screen, setScreen] = useState("home");
@@ -207,7 +208,7 @@ export default function App() {
         throw new Error("Nimiq payment provider not available. Please connect a Nimiq wallet.");
       }
 
-      showToast("🔐 Please confirm stake payment in your Nimiq wallet...");
+      showToast("Please confirm stake payment in Nimiq Pay...");
       const paymentResult = await sendNimiqPayment({
         recipient: DEFAULT_TREASURY_ADDRESS,
         amountNim: params.stakeNim,
@@ -269,7 +270,7 @@ export default function App() {
         throw new Error("Nimiq payment provider not available. Please connect a Nimiq wallet.");
       }
 
-      showToast(`🔐 Please confirm ${stakeAmount} NIM stake in your wallet...`);
+      showToast(`Please confirm ${stakeAmount} NIM stake in Nimiq Pay...`);
       const paymentResult = await sendNimiqPayment({
         recipient: DEFAULT_TREASURY_ADDRESS,
         amountNim: stakeAmount,
@@ -329,7 +330,7 @@ export default function App() {
       }
 
       // 2. Pay stake
-      showToast(`🔐 Please confirm ${stakeAmount} NIM stake in your wallet...`);
+      showToast(`Please confirm ${stakeAmount} NIM stake in Nimiq Pay...`);
       const paymentResult = await sendNimiqPayment({
         recipient: DEFAULT_TREASURY_ADDRESS,
         amountNim: stakeAmount,
@@ -615,16 +616,16 @@ export default function App() {
               onClick={() => setDesktopNoticeOpen(false)}
               aria-label="Close modal"
             >
-              ✕
+              <X size={18} />
             </button>
-            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem", textAlign: "center" }} aria-hidden="true">
-              📱
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }} aria-hidden="true">
+              <Smartphone size={40} className="text-gold" />
             </div>
             <h2 id="desktop-modal-title" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", textAlign: "center", marginBottom: "0.5rem" }}>
               Nimiq Pay Mobile App Required
             </h2>
             <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.5, textAlign: "center", marginBottom: "1.25rem" }}>
-              NimStreak is built as a <strong>Nimiq Pay Mini App</strong>. To guarantee zero-gas microtransactions and biometric security, real NIM staking must be approved inside the Nimiq Pay mobile environment.
+              NimStreak uses <strong>Nimiq Pay</strong> to securely authorize real NIM staking transactions. Your NimStreak profile remains connected, while Nimiq Pay handles transaction approval and determines the funding account with biometric security.
             </p>
             <div style={{ background: "rgba(255, 255, 255, 0.04)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: "1rem", marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", fontSize: "0.85rem", color: "var(--text-primary)" }}>
@@ -648,7 +649,7 @@ export default function App() {
                 onClick={() => {
                   if (typeof navigator !== "undefined" && navigator.clipboard) {
                     navigator.clipboard.writeText("https://nimstreak.vercel.app");
-                    showToast("📋 Copied app link to clipboard!");
+                    showToast("Copied app link to clipboard!");
                   }
                   setDesktopNoticeOpen(false);
                 }}

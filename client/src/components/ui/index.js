@@ -4,3 +4,4 @@ export * from "./streak-stickers.jsx";
 export * from "./social-share.jsx";
 export * from "./nimiq-pay-modal.jsx";
 export * from "./floating-habits-bg.jsx";
+export * from "./worked-example-card.jsx";

@@ -1,5 +1,16 @@
 import React, { useState } from "react";
 import { CategoryBadge, BADGE_DEFINITIONS } from "../ui/streak-stickers.jsx";
+import {
+  Lock,
+  Flame,
+  Coins,
+  Trophy,
+  XCircle,
+  CheckCircle2,
+  Clock,
+  Target,
+  ShieldCheck,
+} from "lucide-react";
 
 export function MyStreaksScreen({
   walletAddress,
@@ -15,7 +26,7 @@ export function MyStreaksScreen({
     return (
       <div className="screen-container">
         <div className="auth-gate-card">
-          <span className="auth-gate-card__icon">🔐</span>
+          <span className="auth-gate-card__icon"><Lock size={36} className="text-gold" /></span>
           <h2>Connect Your Nimiq Wallet</h2>
           <p>Connect your Nimiq address to view your active streaks, progress calendars, and earned badges.</p>
           <button
@@ -49,19 +60,19 @@ export function MyStreaksScreen({
       {/* Overview Cards */}
       <section className="streak-stats-row">
         <div className="stat-card stat-card--highlight">
-          <span className="stat-card__icon">🔥</span>
+          <span className="stat-card__icon"><Flame size={20} className="text-gold" /></span>
           <span className="stat-card__val">{profile.current_active_streak || 0}</span>
           <span className="stat-card__lbl">Active Streak</span>
         </div>
 
         <div className="stat-card">
-          <span className="stat-card__icon">💎</span>
+          <span className="stat-card__icon"><Coins size={20} className="text-gold" /></span>
           <span className="stat-card__val">+{parseFloat(profile.total_nim_earned || 0).toFixed(2)}</span>
           <span className="stat-card__lbl">NIM Earned</span>
         </div>
 
         <div className="stat-card">
-          <span className="stat-card__icon">🏆</span>
+          <span className="stat-card__icon"><Trophy size={20} className="text-gold" /></span>
           <span className="stat-card__val">{profile.completed_challenges || 0}</span>
           <span className="stat-card__lbl">Goals Won</span>
         </div>
@@ -106,7 +117,7 @@ export function MyStreaksScreen({
           className={`tab-btn ${tab === "active" ? "tab-btn--active" : ""}`}
           onClick={() => setTab("active")}
         >
-          <span>🔥 Active ({activeList.length})</span>
+          <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}><Flame size={13} className="text-gold" /> Active ({activeList.length})</span>
         </button>
         <button
           type="button"
@@ -115,7 +126,7 @@ export function MyStreaksScreen({
           className={`tab-btn ${tab === "completed" ? "tab-btn--active" : ""}`}
           onClick={() => setTab("completed")}
         >
-          <span>🏆 Completed ({completedList.length})</span>
+          <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}><Trophy size={13} className="text-gold" /> Completed ({completedList.length})</span>
         </button>
         <button
           type="button"
@@ -124,7 +135,7 @@ export function MyStreaksScreen({
           className={`tab-btn ${tab === "failed" ? "tab-btn--active" : ""}`}
           onClick={() => setTab("failed")}
         >
-          <span>💀 Forfeited ({failedList.length})</span>
+          <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}><XCircle size={13} className="text-rose" /> Forfeited ({failedList.length})</span>
         </button>
       </div>
 
@@ -133,7 +144,7 @@ export function MyStreaksScreen({
         {currentList.length === 0 ? (
           <div className="empty-state">
             <span className="empty-state__icon">
-              {tab === "active" ? "🎯" : tab === "completed" ? "🏆" : "🛡️"}
+              {tab === "active" ? <Target size={36} className="text-gold" /> : tab === "completed" ? <Trophy size={36} className="text-gold" /> : <ShieldCheck size={36} className="text-gold" />}
             </span>
             <h3>
               {tab === "active"
@@ -206,16 +217,16 @@ export function MyStreaksScreen({
                           isTodayChecked ? "mini-status-pill--checked" : "mini-status-pill--pending"
                         }`}
                       >
-                        {isTodayChecked ? "✓ Checked in today" : "⏳ Check-in needed"}
+                        {isTodayChecked ? <span style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}><CheckCircle2 size={11} className="text-emerald" /> Checked in today</span> : <span style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}><Clock size={11} /> Check-in needed</span>}
                       </span>
                     )}
                   </div>
                   <span className="item-streak-badge">
                     {tab === "failed"
-                      ? "💀 Lost"
+                      ? <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><XCircle size={11} className="text-rose" /> Lost</span>
                       : tab === "completed"
-                      ? `🏆 ${duration}d Won`
-                      : `🔥 Day ${streak}/${duration}`}
+                      ? <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Trophy size={11} className="text-gold" /> {duration}d Won</span>
+                      : <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Flame size={11} className="text-gold" /> Day {streak}/{duration}</span>}
                   </span>
                 </div>
 

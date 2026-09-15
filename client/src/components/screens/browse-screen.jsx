@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { CATEGORIES, CategoryBadge, StatusIndicator } from "../ui/streak-stickers.jsx";
+import {
+  KeyRound,
+  Search,
+  X,
+  Target,
+  Coins,
+  Users,
+  User,
+  Globe,
+  Trophy,
+} from "lucide-react";
 
 export function BrowseScreen({
   challenges = [],
@@ -72,7 +83,7 @@ export function BrowseScreen({
       {/* Invite Code Section */}
       <section className="invite-code-card" aria-labelledby="invite-code-heading">
         <div className="invite-code-card__header">
-          <div className="invite-code-card__icon" aria-hidden="true">🔑</div>
+          <div className="invite-code-card__icon" aria-hidden="true"><KeyRound size={20} className="text-gold" /></div>
           <div className="invite-code-card__header-text">
             <h2 id="invite-code-heading" className="invite-code-card__title">Have an Invite Code?</h2>
             <p className="invite-code-card__subtitle">
@@ -118,7 +129,7 @@ export function BrowseScreen({
       {/* Search & Filter Bar */}
       <div className="filter-controls" aria-label="Search and category filters">
         <div className="search-input-wrap">
-          <span className="search-icon" aria-hidden="true">🔍</span>
+          <span className="search-icon" aria-hidden="true"><Search size={16} /></span>
           <input
             type="text"
             id="browse-search-input"
@@ -168,7 +179,7 @@ export function BrowseScreen({
           </div>
         ) : filteredChallenges.length === 0 ? (
           <div className="empty-state">
-            <span className="empty-state__icon" aria-hidden="true">🎯</span>
+            <span className="empty-state__icon" aria-hidden="true"><Target size={36} className="text-gold" /></span>
             <h3>No challenges found</h3>
             <p>Be the first to start a challenge in this category!</p>
           </div>
@@ -199,7 +210,7 @@ export function BrowseScreen({
 
                 <div className="challenge-card__stats-row">
                   <div className="c-stat">
-                    <span className="c-stat__icon" aria-hidden="true">💎</span>
+                    <span className="c-stat__icon" aria-hidden="true"><Coins size={13} className="text-gold" /></span>
                     <div className="c-stat__meta">
                       <span className="c-stat__val">{item.stake_nim} NIM</span>
                       <span className="c-stat__lbl">Stake</span>
@@ -207,7 +218,7 @@ export function BrowseScreen({
                   </div>
 
                   <div className="c-stat">
-                    <span className="c-stat__icon" aria-hidden="true">👥</span>
+                    <span className="c-stat__icon" aria-hidden="true"><Users size={13} className="text-gold" /></span>
                     <div className="c-stat__meta">
                       <span className="c-stat__val">{participantsCount}</span>
                       <span className="c-stat__lbl">Active</span>
@@ -215,7 +226,7 @@ export function BrowseScreen({
                   </div>
 
                   <div className="c-stat">
-                    <span className="c-stat__icon" aria-hidden="true">🏆</span>
+                    <span className="c-stat__icon" aria-hidden="true"><Trophy size={13} className="text-gold" /></span>
                     <div className="c-stat__meta">
                       <span className="c-stat__val">{totalPool} NIM</span>
                       <span className="c-stat__lbl">Pool</span>
@@ -225,7 +236,7 @@ export function BrowseScreen({
 
                 <div className="challenge-card__footer">
                   <span className="challenge-card__type">
-                    {item.type === "group" ? "👥 Group" : item.type === "solo" ? "👤 Solo" : "🌐 Public"}
+                    {item.type === "group" ? <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Users size={11} /> Group</span> : item.type === "solo" ? <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><User size={11} /> Solo</span> : <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Globe size={11} /> Public</span>}
                   </span>
                   <button
                     type="button"

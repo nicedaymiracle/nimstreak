@@ -1,5 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { CategoryBadge } from "../ui/streak-stickers.jsx";
+import {
+  Flame,
+  CheckCircle2,
+  Clock,
+  Plus,
+  Search,
+  Trophy,
+  Target,
+  Coins,
+  ShieldCheck,
+  Users,
+  Zap,
+} from "lucide-react";
 import { shortenWalletAddress } from "../../utils/ui-helpers.js";
 import { API_BASE_URL } from "../../config/index.js";
 
@@ -178,7 +191,7 @@ export function HomeScreen({
                 }`}
               >
                 <span className="hero-status-dot"></span>
-                <span>{isCheckedInToday ? "✓ Checked in today" : "🔥 Awaiting check-in"}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>{isCheckedInToday ? <><CheckCircle2 size={13} className="text-emerald" /> Checked in today</> : <><Clock size={13} /> Awaiting check-in</>}</span>
               </div>
               <CategoryBadge category={topActive.category} size="sm" />
             </div>
@@ -186,7 +199,7 @@ export function HomeScreen({
             {/* Big Visual Streak Counter */}
             <div className="active-streak-hero__counter-box">
               <div className="streak-flame-wrap">
-                <span className="streak-flame-icon">🔥</span>
+                <span className="streak-flame-icon"><Flame size={24} className="text-gold" /></span>
               </div>
               <div className="streak-number-col">
                 <span className="streak-big-number">{currentStreak}</span>
@@ -272,7 +285,7 @@ export function HomeScreen({
                     onSelectChallenge(topActive.challenge_id || topActive.id);
                   }}
                 >
-                  <span className="btn__icon">✓</span>
+                  <span className="btn__icon"><CheckCircle2 size={16} className="text-emerald" /></span>
                   <span>Checked in today</span>
                   <span className="btn__sub-arrow">View Details →</span>
                 </button>
@@ -283,7 +296,7 @@ export function HomeScreen({
                   disabled={checkingIn}
                   onClick={handleCheckinToday}
                 >
-                  <span className="btn__icon">{checkingIn ? "⏳" : "🔥"}</span>
+                  <span className="btn__icon">{checkingIn ? <Clock size={16} /> : <Flame size={16} className="text-gold" />}</span>
                   <span>
                     {checkingIn
                       ? "Recording check-in..."
@@ -327,7 +340,7 @@ export function HomeScreen({
                     </div>
                     <div className="other-streak-card__right">
                       <span className="other-streak-badge">
-                        🔥 Day {item.current_streak || 1}/{item.duration_days || 7}
+                        Day {item.current_streak || 1}/{item.duration_days || 7}
                       </span>
                       <span className="other-streak-arrow">→</span>
                     </div>
@@ -344,7 +357,7 @@ export function HomeScreen({
               className="btn btn--outline-gold quick-action-btn"
               onClick={() => onNavigate("create-challenge")}
             >
-              <span className="btn__icon">➕</span>
+              <span className="btn__icon"><Plus size={16} /></span>
               <span>Create Challenge</span>
             </button>
             <button
@@ -352,7 +365,7 @@ export function HomeScreen({
               className="btn btn--secondary quick-action-btn"
               onClick={() => onNavigate("browse")}
             >
-              <span className="btn__icon">🔍</span>
+              <span className="btn__icon"><Search size={16} /></span>
               <span>Browse Challenges</span>
             </button>
           </section>
@@ -361,7 +374,7 @@ export function HomeScreen({
         /* ── MODE B: COMPLETED / BETWEEN STREAKS ───────────────────── */
         <section className="home-completed-state">
           <div className="completed-state-header">
-            <span className="completed-state__icon">🏆</span>
+            <span className="completed-state__icon"><Trophy size={40} className="text-gold" /></span>
             <h1 className="completed-state__title">Your next streak is waiting.</h1>
             <p className="completed-state__subtitle">
               You've completed {completedChallenges.length} challenge
@@ -384,7 +397,7 @@ export function HomeScreen({
                   <h3 className="completed-summary-card__title">{item.title}</h3>
                 </div>
                 <div className="completed-summary-card__right">
-                  <span className="badge badge--success">✓ Completed</span>
+                  <span className="badge badge--success"><CheckCircle2 size={12} className="inline-icon" /> Completed</span>
                   <span className="completed-summary-card__stake">
                     +{item.stake_amount || item.challenge_stake || 0.5} NIM
                   </span>
@@ -399,7 +412,7 @@ export function HomeScreen({
               className="btn btn--primary btn--lg btn--full"
               onClick={() => onNavigate("create-challenge")}
             >
-              <span className="btn__icon">🔥</span>
+              <span className="btn__icon"><Flame size={16} /></span>
               <span>Start a New Challenge</span>
             </button>
             <button
@@ -407,7 +420,7 @@ export function HomeScreen({
               className="btn btn--secondary btn--lg btn--full"
               onClick={() => onNavigate("browse")}
             >
-              <span className="btn__icon">🔍</span>
+              <span className="btn__icon"><Search size={16} /></span>
               <span>Browse Challenges</span>
             </button>
           </div>
@@ -429,7 +442,7 @@ export function HomeScreen({
             <div className="onboarding-step-card">
               <div className="step-card__header">
                 <span className="step-card__num">01</span>
-                <span className="step-card__icon">🎯</span>
+                <span className="step-card__icon"><Target size={20} className="text-gold" /></span>
               </div>
               <h3 className="step-card__title">Choose a habit</h3>
               <p className="step-card__desc">Pick fitness, coding, health, or set a custom goal.</p>
@@ -438,7 +451,7 @@ export function HomeScreen({
             <div className="onboarding-step-card">
               <div className="step-card__header">
                 <span className="step-card__num">02</span>
-                <span className="step-card__icon">💎</span>
+                <span className="step-card__icon"><Coins size={20} className="text-gold" /></span>
               </div>
               <h3 className="step-card__title">Stake NIM</h3>
               <p className="step-card__desc">Put real skin in the game via fast Nimiq Pay micro-stake.</p>
@@ -447,7 +460,7 @@ export function HomeScreen({
             <div className="onboarding-step-card">
               <div className="step-card__header">
                 <span className="step-card__num">03</span>
-                <span className="step-card__icon">🔥</span>
+                <span className="step-card__icon"><Flame size={20} className="text-gold" /></span>
               </div>
               <h3 className="step-card__title">Check in daily</h3>
               <p className="step-card__desc">Log one tap before midnight to keep your streak unbroken.</p>
@@ -456,7 +469,7 @@ export function HomeScreen({
             <div className="onboarding-step-card">
               <div className="step-card__header">
                 <span className="step-card__num">04</span>
-                <span className="step-card__icon">🏆</span>
+                <span className="step-card__icon"><Trophy size={20} className="text-gold" /></span>
               </div>
               <h3 className="step-card__title">Finish your streak</h3>
               <p className="step-card__desc">Reclaim your stake plus forfeited rewards and a NimStreak bonus.</p>
@@ -469,7 +482,7 @@ export function HomeScreen({
               className="btn btn--primary btn--lg btn--full"
               onClick={() => onNavigate("create-challenge")}
             >
-              <span className="btn__icon">🔥</span>
+              <span className="btn__icon"><Flame size={16} /></span>
               <span>Create your first challenge</span>
             </button>
             <button
@@ -477,7 +490,7 @@ export function HomeScreen({
               className="btn btn--secondary btn--lg btn--full"
               onClick={() => onNavigate("browse")}
             >
-              <span className="btn__icon">🔍</span>
+              <span className="btn__icon"><Search size={16} /></span>
               <span>Browse challenges</span>
             </button>
           </div>
@@ -488,27 +501,27 @@ export function HomeScreen({
       <section className="stats-section">
         <div className="section-title">
           <span>Platform Live Activity</span>
-          <span className="section-badge">⚡ Real-time</span>
+          <span className="section-badge"><Zap size={11} className="inline-icon" /> Real-time</span>
         </div>
 
         <div className="stats-grid">
           <div className="stat-card">
-            <span className="stat-card__icon">👥</span>
+            <span className="stat-card__icon"><Users size={20} className="text-gold" /></span>
             <span className="stat-card__val">{globalStats?.totalUsers ?? 0}</span>
             <span className="stat-card__lbl">Active Streakers</span>
           </div>
           <div className="stat-card">
-            <span className="stat-card__icon">💎</span>
+            <span className="stat-card__icon"><Coins size={20} className="text-gold" /></span>
             <span className="stat-card__val">{(globalStats?.totalNimStaked ?? 0).toFixed(1)}</span>
             <span className="stat-card__lbl">Total NIM Staked</span>
           </div>
           <div className="stat-card">
-            <span className="stat-card__icon">🔥</span>
+            <span className="stat-card__icon"><Flame size={20} className="text-gold" /></span>
             <span className="stat-card__val">{globalStats?.totalCheckins ?? 0}</span>
             <span className="stat-card__lbl">Check-ins Logged</span>
           </div>
           <div className="stat-card">
-            <span className="stat-card__icon">🏆</span>
+            <span className="stat-card__icon"><Trophy size={20} className="text-gold" /></span>
             <span className="stat-card__val">{globalStats?.activeChallenges ?? 0}</span>
             <span className="stat-card__lbl">Live Challenges</span>
           </div>
@@ -523,7 +536,7 @@ export function HomeScreen({
           role="button"
           tabIndex={0}
         >
-          <div className="quick-card__icon">🎯</div>
+          <div className="quick-card__icon"><Target size={24} className="text-gold" /></div>
           <div className="quick-card__info">
             <h3>My Streaks & Badges</h3>
             <p>Track your active challenges, calendar heatmaps, and earned rewards.</p>
@@ -537,7 +550,7 @@ export function HomeScreen({
           role="button"
           tabIndex={0}
         >
-          <div className="quick-card__icon">🛡️</div>
+          <div className="quick-card__icon"><ShieldCheck size={24} className="text-gold" /></div>
           <div className="quick-card__info">
             <h3>Streaker Profile</h3>
             <p>View your Nimiq identity, completed goals, and lifetime stats.</p>

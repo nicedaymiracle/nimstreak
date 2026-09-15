@@ -1,5 +1,6 @@
 import React from "react";
 import { launchNimiqPay } from "../../utils/nimiq-pay-links.js";
+import { Smartphone, ArrowUpRight, X } from "lucide-react";
 
 export function NimiqPayNoticeModal({
   isOpen,
@@ -15,22 +16,25 @@ export function NimiqPayNoticeModal({
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close">
-          ✕
+          <X size={18} />
         </button>
 
         <div className="wallet-notice-view">
           <div className="notice-icon-wrap">
-            <span className="notice-icon">📱</span>
+            <Smartphone size={36} className="text-gold" aria-hidden="true" />
           </div>
 
-          <h2 className="modal-title text-gold">NimiqPay Required</h2>
+          <h2 className="modal-title text-gold">Nimiq Pay Required</h2>
           
           <div className="notice-message-box">
             <p className="notice-primary-text">
-              Sorry, <strong>NimStreak</strong> only works inside <strong>Nimiq Wallet</strong> with <strong>NimiqPay</strong> installed.
+              NimStreak uses <strong>Nimiq Pay</strong> to securely approve NIM transactions.
             </p>
             <p className="notice-secondary-text">
-              Please open this application from your NimiqPay mini-app menu, or download the NimiqPay wallet app below.
+              Your NimStreak profile stays connected to your account, while Nimiq Pay handles transaction approval and determines the wallet account used for the payment.
+            </p>
+            <p className="notice-secondary-text" style={{ marginTop: "0.5rem" }}>
+              Please open NimStreak from the Mini Apps section inside the Nimiq Pay app, or install Nimiq Pay on your mobile device below.
             </p>
           </div>
 
@@ -40,8 +44,8 @@ export function NimiqPayNoticeModal({
               className="btn btn--gold-glow btn--full btn--lg"
               onClick={handleLaunchClick}
             >
-              <span>Open / Get NimiqPay</span>
-              <span>↗</span>
+              <span>Open / Get Nimiq Pay</span>
+              <ArrowUpRight size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -49,3 +53,5 @@ export function NimiqPayNoticeModal({
     </div>
   );
 }
+
+export default NimiqPayNoticeModal;
