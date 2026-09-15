@@ -599,7 +599,7 @@ export function ChallengeDetailScreen({
             <h3>Ready to take on this challenge?</h3>
             <p>
               Stake <strong>{challenge.stake_nim} NIM</strong> to join. Complete all {duration} days
-              to reclaim your original stake, earn your share of forfeited stakes if others quit, plus an eligible NimStreak protocol bonus!
+              to reclaim your stake plus your share of any forfeited stakes!
             </p>
           </div>
 
