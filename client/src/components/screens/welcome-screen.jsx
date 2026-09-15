@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { FloatingHabitsBackground } from "../ui/floating-habits-bg.jsx";
-import { WorkedExampleCard } from "../ui/worked-example-card.jsx";
 import {
   Target,
   Lock,
@@ -493,13 +492,6 @@ export function WelcomeScreen({
                 <p className="welcome-lead-desc">
                   Build daily habits, stake NIM, and become a better you on the blockchain.
                 </p>
-
-                {/* 10-Second Visual Worked Example (Pre-Sign-In) */}
-                <WorkedExampleCard
-                  defaultExpanded={true}
-                  isCollapsible={true}
-                  showBonusNote={true}
-                />
 
                 {inviteHint && (
                   <div className="invite-notice-pill">
