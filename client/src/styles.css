@@ -185,32 +185,49 @@ body:has(.welcome-screen-wrapper) {
   gap: 0.6rem;
 }
 
+.top-nav-avatar-btn,
 .top-nav-profile-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--navy-surface, rgba(15, 23, 42, 0.6));
-  border: 1.5px solid rgba(235, 183, 0, 0.4);
-  cursor: pointer;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   padding: 0;
-  overflow: hidden;
-  transition: all 0.2s ease;
+  margin: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
 }
 
+.top-nav-avatar-btn:hover,
 .top-nav-profile-btn:hover {
-  border-color: var(--gold-primary, #ebb700);
-  transform: scale(1.05);
-  box-shadow: 0 0 12px rgba(235, 183, 0, 0.3);
+  transform: scale(1.06);
+  opacity: 0.92;
 }
 
+.top-nav-avatar-btn:active,
 .top-nav-profile-btn:active {
   transform: scale(0.95);
+}
+
+.top-nav-avatar-btn:focus,
+.top-nav-avatar-btn:focus-visible,
+.top-nav-profile-btn:focus,
+.top-nav-profile-btn:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.top-nav-avatar-btn .avatar-circle,
+.top-nav-profile-btn .avatar-circle {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 .notif-bell-btn {
