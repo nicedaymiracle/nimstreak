@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { X, Bell, Clock, Check, ShieldCheck, Smartphone, AlertCircle, Sparkles } from "lucide-react";
+import {
+  ChevronLeft,
+  Smartphone,
+  Bell,
+  BarChart2,
+  Gift,
+  Users,
+  Clock,
+  Info,
+  ChevronDown,
+  Check,
+  AlertCircle,
+} from "lucide-react";
 import {
   getNotificationPreferences,
   saveNotificationPreferences,
-  DEFAULT_PREFERENCES,
 } from "../../utils/notification-engine";
 import {
   isPushSupported,
@@ -76,10 +87,10 @@ export function NotificationPreferencesModal({ isOpen, onClose, walletAddress })
       setPermission(getDeviceNotificationPermission());
       if (res.success) {
         setIsSubscribed(true);
-        setPushFeedback("Device notifications enabled! You will receive lock screen alerts.");
+        setPushFeedback("Device notifications enabled!");
         triggerSaved();
       } else if (res.status === "denied") {
-        setPushFeedback("Notification permission was denied. You can enable it in browser settings.");
+        setPushFeedback("Notification permission was denied. Enable in browser settings.");
       }
     } catch (err) {
       setPushFeedback(err.message || "Failed to enable notifications.");
@@ -93,7 +104,7 @@ export function NotificationPreferencesModal({ isOpen, onClose, walletAddress })
       setPushLoading(true);
       await unsubscribeFromDeviceNotifications(walletAddress);
       setIsSubscribed(false);
-      setPushFeedback("Device notifications disabled on this device.");
+      setPushFeedback("Device notifications disabled.");
       triggerSaved();
     } catch (err) {
       setPushFeedback("Failed to unsubscribe: " + err.message);
@@ -105,113 +116,108 @@ export function NotificationPreferencesModal({ isOpen, onClose, walletAddress })
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card notif-prefs-card" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={onClose}
-          className="modal-close-btn"
-          aria-label="Close preferences"
-        >
-          <X size={18} />
-        </button>
-
-        <div className="notif-prefs-header">
-          <div className="notif-prefs-icon-wrap">
-            <Bell size={20} className="text-gold" />
-          </div>
-          <div>
-            <h3 className="modal-title" style={{ fontSize: "1.2rem", margin: 0 }}>Notification Settings</h3>
-            <p className="modal-desc" style={{ fontSize: "0.8rem", margin: 0 }}>Configure accountability reminders & device push</p>
+        {/* Header with Back Button */}
+        <div className="notif-settings-header">
+          <button
+            type="button"
+            onClick={onClose}
+            className="notif-back-btn"
+            aria-label="Go back"
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <div className="notif-settings-title-wrap">
+            <h2 className="notif-settings-title">Notification Settings</h2>
+            <p className="notif-settings-subtitle">Stay on track with reminders and updates.</p>
           </div>
         </div>
 
-        {/* ── Device Push Notifications Status & Setup ── */}
-        <div className="notif-device-card" style={{
-          background: "rgba(233, 178, 19, 0.06)",
-          border: "1px solid rgba(233, 178, 19, 0.2)",
-          borderRadius: "0.75rem",
-          padding: "1rem",
-          marginBottom: "1rem"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Smartphone size={16} className="text-gold" />
-              <span style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text-primary)" }}>Device Push Alerts</span>
+        {/* ── Device Push Alerts Card ── */}
+        <div className="notif-device-card">
+          <div className="notif-device-top">
+            <div className="notif-device-title-wrap">
+              <div className="notif-gold-icon-box">
+                <Smartphone size={18} />
+              </div>
+              <span className="notif-device-title">Device Push Alerts</span>
             </div>
             {inNimiqPay ? (
-              <span style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", borderRadius: "1rem", background: "rgba(255,255,255,0.1)", color: "#cbd5e1" }}>
+              <span className="notif-badge-pill notif-badge-pill--muted">
                 In-App Mode (Nimiq Pay)
               </span>
             ) : !pushSupported ? (
-              <span style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", borderRadius: "1rem", background: "rgba(255,255,255,0.1)", color: "#94a3b8" }}>
+              <span className="notif-badge-pill notif-badge-pill--muted">
                 Browser Unsupported
               </span>
             ) : isSubscribed ? (
-              <span style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", borderRadius: "1rem", background: "rgba(16, 185, 129, 0.2)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.4)" }}>
+              <span className="notif-badge-pill notif-badge-pill--active">
                 Active
               </span>
             ) : permission === "denied" ? (
-              <span style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", borderRadius: "1rem", background: "rgba(239, 68, 68, 0.2)", color: "#ef4444" }}>
+              <span className="notif-badge-pill notif-badge-pill--blocked">
                 Blocked
               </span>
             ) : (
-              <span style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", borderRadius: "1rem", background: "rgba(233, 178, 19, 0.15)", color: "var(--gold)" }}>
-                Available
-              </span>
+              <button
+                type="button"
+                onClick={handleEnablePush}
+                disabled={pushLoading}
+                className="notif-badge-btn"
+              >
+                {pushLoading ? "Enabling..." : "Enable Push"}
+              </button>
             )}
           </div>
 
-          <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: "0 0 0.75rem 0", lineHeight: 1.45 }}>
+          <p className="notif-device-desc">
             {inNimiqPay
-              ? "Running inside Nimiq Pay WebView. Accountability reminders, streak alerts, and payout confirmations appear instantly in your in-app Notification Center."
+              ? "Running inside Nimiq Pay. You'll receive reminders, streak alerts, and payout confirmations in your in-app Notification Center."
               : !pushSupported
-              ? "Background device notifications require a modern browser with Web Push support (Chrome on Android, Safari on iOS 16.4+ PWA)."
+              ? "Background device notifications require a modern browser with Web Push support."
               : isSubscribed
               ? "Device notifications are active on this device. You will be notified even when NimStreak is closed."
               : permission === "denied"
-              ? "Notifications were blocked in your browser settings. To enable, update site permissions in your browser."
-              : "Receive lock-screen alerts for daily check-ins, streaks at risk, and on-chain payout confirmations when NimStreak is closed."}
+              ? "Notifications were blocked in your browser. Update site permissions in browser settings to enable."
+              : "Receive lock-screen alerts for daily check-ins, streaks at risk, and on-chain payout confirmations."}
           </p>
 
+          {!inNimiqPay && pushSupported && permission !== "denied" && isSubscribed && (
+            <div style={{ marginTop: "0.5rem" }}>
+              <button
+                type="button"
+                onClick={handleDisablePush}
+                disabled={pushLoading}
+                className="btn btn--secondary btn--sm"
+                style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+              >
+                {pushLoading ? "Updating..." : "Disable Device Push"}
+              </button>
+            </div>
+          )}
+
           {pushFeedback && (
-            <div style={{ fontSize: "0.75rem", color: "var(--gold)", marginBottom: "0.6rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+            <div className="notif-push-feedback">
               <AlertCircle size={13} />
               <span>{pushFeedback}</span>
             </div>
           )}
+        </div>
 
-          {pushSupported && !inNimiqPay && permission !== "denied" && (
-            <div>
-              {isSubscribed ? (
-                <button
-                  type="button"
-                  onClick={handleDisablePush}
-                  disabled={pushLoading}
-                  className="btn btn--secondary btn--sm"
-                  style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem" }}
-                >
-                  {pushLoading ? "Updating..." : "Disable Device Push"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleEnablePush}
-                  disabled={pushLoading}
-                  className="btn btn--gold btn--sm"
-                  style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem" }}
-                >
-                  {pushLoading ? "Enabling..." : "Enable Device Notifications"}
-                </button>
-              )}
-            </div>
-          )}
+        {/* ── Notification Preferences Section ── */}
+        <div className="notif-section-header">
+          <h3 className="notif-section-title">Notification Preferences</h3>
+          <p className="notif-section-subtitle">Choose what you want to be notified about.</p>
         </div>
 
         <div className="notif-prefs-list">
           {/* Daily Reminders */}
           <div className="notif-pref-row">
+            <div className="notif-gold-icon-box">
+              <Bell size={18} />
+            </div>
             <div className="notif-pref-info">
               <span className="notif-pref-title">Daily Check-in Reminders</span>
-              <span className="notif-pref-desc">Remind you before you break your active challenge streak</span>
+              <span className="notif-pref-desc">Remind you before you break your streak</span>
             </div>
             <button
               type="button"
@@ -223,31 +229,13 @@ export function NotificationPreferencesModal({ isOpen, onClose, walletAddress })
             </button>
           </div>
 
-          {/* Preferred Reminder Time */}
-          {prefs.dailyReminders && (
-            <div className="notif-time-select-row">
-              <div className="notif-time-label">
-                <Clock size={14} className="text-gold" />
-                <span>Preferred Alert Time</span>
-              </div>
-              <select
-                value={prefs.preferredReminderTime || "20:00"}
-                onChange={handleTimeChange}
-                className="form-select notif-time-picker"
-              >
-                <option value="09:00">Morning (9:00 AM)</option>
-                <option value="12:00">Midday (12:00 PM)</option>
-                <option value="17:00">Afternoon (5:00 PM)</option>
-                <option value="20:00">Evening (8:00 PM)</option>
-                <option value="22:00">Night (10:00 PM)</option>
-              </select>
-            </div>
-          )}
-
           {/* Challenge Updates */}
           <div className="notif-pref-row">
+            <div className="notif-gold-icon-box">
+              <BarChart2 size={18} />
+            </div>
             <div className="notif-pref-info">
-              <span className="notif-pref-title">Challenge Lifecycle Updates</span>
+              <span className="notif-pref-title">Challenge Updates</span>
               <span className="notif-pref-desc">Alerts when challenges start, complete, or finalize</span>
             </div>
             <button
@@ -262,9 +250,12 @@ export function NotificationPreferencesModal({ isOpen, onClose, walletAddress })
 
           {/* Reward Updates */}
           <div className="notif-pref-row">
+            <div className="notif-gold-icon-box">
+              <Gift size={18} />
+            </div>
             <div className="notif-pref-info">
               <span className="notif-pref-title">Reward & Payout Confirmations</span>
-              <span className="notif-pref-desc">Notify when payouts and streak bonuses confirm on-chain</span>
+              <span className="notif-pref-desc">Notify when payouts and bonuses confirm on-chain</span>
             </div>
             <button
               type="button"
@@ -278,9 +269,12 @@ export function NotificationPreferencesModal({ isOpen, onClose, walletAddress })
 
           {/* Challenge Invitations */}
           <div className="notif-pref-row">
+            <div className="notif-gold-icon-box">
+              <Users size={18} />
+            </div>
             <div className="notif-pref-info">
               <span className="notif-pref-title">Challenge Invitations</span>
-              <span className="notif-pref-desc">Notifications when you are invited to a new streak challenge</span>
+              <span className="notif-pref-desc">When you're invited to a challenge</span>
             </div>
             <button
               type="button"
@@ -291,18 +285,44 @@ export function NotificationPreferencesModal({ isOpen, onClose, walletAddress })
               <span className="pref-toggle-thumb" />
             </button>
           </div>
+
+          {/* Preferred Alert Time */}
+          <div className="notif-pref-row notif-pref-row--time">
+            <div className="notif-gold-icon-box">
+              <Clock size={18} />
+            </div>
+            <div className="notif-pref-info">
+              <span className="notif-pref-title">Preferred Alert Time</span>
+            </div>
+            <div className="notif-select-wrapper">
+              <select
+                value={prefs.preferredReminderTime || "20:00"}
+                onChange={handleTimeChange}
+                className="notif-time-select"
+                aria-label="Preferred Alert Time"
+              >
+                <option value="09:00">9:00 AM</option>
+                <option value="12:00">12:00 PM</option>
+                <option value="17:00">5:00 PM</option>
+                <option value="20:00">8:00 PM</option>
+                <option value="22:00">10:00 PM</option>
+              </select>
+              <ChevronDown size={14} className="notif-select-arrow" />
+            </div>
+          </div>
         </div>
 
-        {/* Anti-spam footer note */}
-        <div className="notif-prefs-footer">
-          <div className="notif-antispam-tag">
-            <ShieldCheck size={14} className="text-gold" />
-            <span>Anti-spam: max 1 daily reminder</span>
+        {/* ── Bottom Information Callout ── */}
+        <div className="notif-info-callout">
+          <div className="notif-info-icon">
+            <Info size={16} />
           </div>
-
+          <span className="notif-info-text">
+            You can change these settings anytime from your profile.
+          </span>
           {savedMessage && (
-            <span className="notif-saved-tag">
-              <Check size={13} />
+            <span className="notif-saved-pill">
+              <Check size={12} />
               <span>Saved</span>
             </span>
           )}

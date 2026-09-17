@@ -556,39 +556,17 @@ export default function App() {
           <span className="brand-name">Nim<span className="brand-name--gold">Streak</span></span>
         </div>
 
-        <div className="top-nav-right" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div className="top-nav-right">
           {walletAddress && (
             <button
               type="button"
               className="notif-bell-btn"
               onClick={() => setNotificationsOpen(true)}
               aria-label="Open notifications"
-              style={{
-                position: "relative",
-                background: "var(--navy-surface)",
-                border: "1px solid var(--navy-border)",
-                borderRadius: "0.5rem",
-                padding: "0.45rem",
-                color: "var(--gold)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
             >
-              <Bell size={18} />
+              <Bell size={20} />
               {notifications.filter((n) => !n.read).length > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-3px",
-                    right: "-3px",
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    background: "var(--gold)",
-                  }}
-                />
+                <span className="notif-bell-badge" />
               )}
             </button>
           )}
@@ -596,14 +574,11 @@ export default function App() {
           {walletAddress ? (
             <button
               type="button"
-              className="wallet-pill-btn"
+              className="top-nav-avatar-btn"
               onClick={() => setScreen("profile")}
+              aria-label="Player Profile"
             >
-              <NimiqIdenticon address={walletAddress} size={22} />
-              <span className="wallet-pill-addr">{shortenWalletAddress(walletAddress, 4, 4)}</span>
-              {walletBalance !== undefined && (
-                <span className="wallet-pill-bal">{walletBalance} NIM</span>
-              )}
+              <NimiqIdenticon address={walletAddress} size={30} />
             </button>
           ) : (
             <button
