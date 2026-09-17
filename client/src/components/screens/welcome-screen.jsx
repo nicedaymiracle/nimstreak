@@ -7,7 +7,6 @@ import {
   Trophy,
   Info,
   Flame,
-  ShieldCheck,
   Link2,
   ArrowRight,
   Wallet,
@@ -544,17 +543,6 @@ export function WelcomeScreen({
                   </span>
                   <span>Use Nimiq Wallet Instead</span>
                 </button>
-
-                {/* Nimiq Pay vs Wallet Clarification */}
-                <div className="nimiq-pay-clarification-card">
-                  <ShieldCheck size={18} className="nimiq-pay-clarification-icon" aria-hidden="true" />
-                  <div>
-                    <div className="nimiq-pay-clarification-title">Nimiq Pay & Account Security</div>
-                    <p className="nimiq-pay-clarification-desc">
-                      NimStreak uses Nimiq Pay to securely approve NIM transactions. Your NimStreak profile stays connected to your account, while Nimiq Pay handles transaction approval and determines the wallet account used for the payment.
-                    </p>
-                  </div>
-                </div>
 
                 {/* Learn More Toggle */}
                 <div className="welcome-learn-more-wrap">
