@@ -15,7 +15,7 @@
   <a href="https://nimstreak.vercel.app"><img src="https://img.shields.io/badge/Live_App-nimstreak.vercel.app-EBB700?style=for-the-badge&logo=safari&logoColor=white" alt="Live App" /></a>
   <img src="https://img.shields.io/badge/Nimiq_2.0-Albatross_PoS-EBB700?style=for-the-badge" alt="Nimiq 2.0" />
   <img src="https://img.shields.io/badge/Nimiq_Pay-Mini_App-1F2937?style=for-the-badge" alt="Nimiq Pay" />
-  <img src="https://img.shields.io/badge/Tests-50%2F50_Passing-10B981?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-66%2F66_Passing-10B981?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License" />
 </p>
 
@@ -68,6 +68,39 @@ Most habit trackers fail because **quitting is free**. When there are no consequ
 > **The Hook:** Stay disciplined and you take home the forfeited stakes of everyone who quit. Break your promise, and your coins fund the winners.
 
 ---
+
+## 🔄 Challenge Lifecycle
+
+Every NimStreak challenge progresses through a deterministic, strictly verified lifecycle:
+
+```
+  ┌──────────────┐     ┌──────────────┐     ┌───────────────────────────────────┐
+  │ 1. OPEN      │ ──► │ 2. ACTIVE    │ ──► │ 3. OUTCOME                        │
+  │ Registration │     │ Daily check- │     ├─────────────────┬─────────────────┤
+  │ & staking    │     │ in window    │     │ A. COMPLETED    │ B. FORFEITED    │
+  └──────────────┘     └──────────────┘     │ 100% days done  │ Missed check-in │
+                                            └────────┬────────┴─────────────────┘
+                                                     ▼
+                                            ┌─────────────────┐
+                                            │ 4. VERIFICATION │
+                                            │ Payout verified │
+                                            │ on Nimiq PoS    │
+                                            └────────┬────────┘
+                                                     ▼
+                                            ┌─────────────────┐
+                                            │ 5. CONFIRMED    │
+                                            │ Paid on-chain or│
+                                            │ retryable failure
+                                            └─────────────────┘
+```
+
+1. **`open` (Registration Open):** The challenge is created, creator stake is verified on-chain, and registration is open for challengers.
+2. **`active` (Active Challenge):** Challengers check in once every 24 hours to keep their streak alive and protect their stake.
+3. **`completed` (Streak Won):** Challenger successfully completes 100% of duration days. Eligible to claim return of stake plus reward.
+4. **`forfeited` (Stake Forfeited):** A daily check-in was missed before the deadline. The stake is moved to the challenge reward pool for finishers.
+5. **`payout processing` (Verifying On-Chain):** Treasury payout has been signed and broadcast; awaiting blockchain confirmation.
+6. **`paid` (Reward Paid & Confirmed):** Payout confirmed on-chain on Nimiq 2.0 with a verifiable Nimiq Watch transaction hash.
+7. **`failed` (Payout Needs Retry):** If treasury check or broadcast encounters an RPC issue, state remains safely retryable without losing claim eligibility.
 
 ## 🧠 Why NimStreak Works
 
@@ -147,17 +180,35 @@ The **Player Dashboard** serves as the central mission control once your wallet 
 
 The **Browse Page** is where players discover active challenges created by other streakers to compete together:
 - **Private Invite Code Portal:** Prominent entry field allowing players to join exclusive private challenges using 6-character access codes (e.g. `STREAK7`, `GYM2026`) created by friends, coworkers, or DAOs.
-- **Instant Search & Filter Chips:** Fast keyword search across habit titles alongside category filter tabs:
-  - 🏋️ **Fitness** (*Pushups, Gym, Running, 10k Steps*)
-  - 📚 **Learning** (*Reading, Skill Drills*)
-  - 💻 **Coding** (*Daily Commits, LeetCode, Building in Public*)
-  - 🥗 **Health** (*Clean Eating, Water Hydration, Sleep Schedules*)
-  - 🧘 **Mindfulness** (*Meditation, Journaling, Digital Detox*)
+- **Instant Search & Filter Chips:** Fast keyword search across habit titles alongside category filter tabs (Fitness, Learning, Coding, Health, Mindfulness).
+- **Actionable Empty States:** Helpful search and filter empty states with one-click *"Clear Filters"* and *"+ Create Challenge"* actions.
 - **Challenge Cards:** Rich preview cards showing entry stake requirements (e.g. `0.5 NIM`), duration (`7 Days`), active participant headcount, and total accumulated prize pool. One-click *"View & Stake"* opens the on-chain pledge flow.
 
 ---
 
-### 4. 🔥 My Streaks & Habit Tracker
+### 4. 🏆 Challenge Detail, Results & Sharing
+> *Detailed habit view, live participant leaderboard, results breakdown, and repeat challenges.*
+
+The **Challenge Detail** screen adapts to every lifecycle state:
+- **Consistent Lifecycle Status Pills:** Clear visual tags indicating whether registration is open, active check-in is pending/secured, or payout verification is processing.
+- **Public / Unauthenticated Challenge Preview:** Shared challenge links (`/?challenge=<id>&invite=<code>`) allow visitors to view full public challenge information without connecting a wallet first. Staking/joining seamlessly invokes Nimiq Pay.
+- **Clean Challenge Sharing:** Native mobile Web Share API with clipboard fallback generates structured invitations:
+  ```text
+  🔥 Join my NimStreak challenge: [Challenge Name]
+  🎯 Stake: [X] NIM
+  ⏱️ Duration: [Y] Days
+  Join here: [URL]
+  ```
+- **Challenge Results Breakdown:** Completed challenges display a full post-quest analysis:
+  - Total Participants, Finishers, and Forfeited Participants
+  - Days Completed (`7/7 Days`)
+  - 100% Original Stake Return + Forfeited Pool Share + NimStreak Bonus
+  - On-Chain Payout Status with direct Nimiq Watch explorer link
+- **Repeat Challenge:** One-tap action for finished challenges pre-fills the Create Challenge form (Title, Description, Category, Duration, Stake) for the user to review and authorize. Never automatically stakes funds without user approval.
+
+---
+
+### 5. 🔥 My Streaks & Habit Tracker
 > *Active commitment tracker, streak flame counter, and trophy showcase.*
 
 <p align="center">
@@ -166,22 +217,16 @@ The **Browse Page** is where players discover active challenges created by other
 
 The **My Streaks Page** is where daily consistency is monitored and celebrated:
 - **Top Performance Trophies:** Instant view of your current **Active Streak**, total **NIM Earned** from bonus payouts, and total **Goals Won**.
-- **Badges & Achievements Trophy Case:** Unlocks dynamic achievements as you level up your consistency:
-  - 🎯 **First Step:** Unlocked upon creating your very first challenge.
-  - ⚡ **7 Day Streak:** Complete an unbroken full week of daily check-ins.
-  - 🔥 **30 Day Streak:** Master a full month of discipline.
-  - 🌟 **100 Day Streak:** Legendary centurion habit formation.
-  - 👑 **Challenge Winner:** Cross the finish line and claim your stake.
-  - 💪 **Iron Will:** Finish high-stake commitments without faltering.
-- **Challenge Status Filter Tabs:**
-  - **Active:** View live challenges, countdown timers, and tap daily check-ins.
-  - **Completed:** View completed victories with one-click on-chain reward claim buttons.
-  - **Forfeited:** Historical archive of missed habits to reflect, adapt, and retry.
+- **Badges & Achievements Trophy Case:** Unlocks dynamic achievements as you level up your consistency (*First Step*, *7 Day Streak*, *30 Day Streak*, *100 Day Streak*, *Challenge Winner*, *Iron Will*).
+- **Lifecycle Tabs with Actionable Empty States:**
+  - **Active:** View live challenges, countdown timers, and tap daily check-ins. Actionable shortcuts to browse or create when empty.
+  - **Completed:** View completed victories with results breakdown, repeat challenge actions, and on-chain claim buttons.
+  - **Forfeited:** Historical archive of broken streaks with encouraging feedback to restart.
 
 ---
 
-### 5. 👤 Player Profile & Performance Metrics
-> *Decoupled wallet identity, customizable profile, and lifetime consistency stats.*
+### 6. 👤 Player Profile & Transaction History
+> *Decoupled wallet identity, customizable profile, lifetime consistency stats, and verified transaction history.*
 
 <p align="center">
   <img src="docs/screenshots/player-profile.png" alt="NimStreak Player Profile" width="850" />
@@ -190,12 +235,36 @@ The **My Streaks Page** is where daily consistency is monitored and celebrated:
 The **Player Profile** showcases your verifiable blockchain reputation:
 - **Identicon & Display Name:** Features your deterministic Nimiq Identicon avatar and editable streaker alias (e.g. `Streaker_QC0T`).
 - **Decoupled Wallet Identity:** Displays your stable profile ID (`NQ60...QC0T`) with one-click copy, keeping your stats persistent even when switching signing accounts in Nimiq Pay.
-- **Habit Performance Metrics Grid:** Comprehensive track record tracking:
-  - 🔥 **Active Streak** & ⚡ **Best Streak Ever**
-  - 💎 **NIM Won** & 🔒 **Total Staked**
-  - 🏆 **Challenges Completed** vs 💀 **Challenges Forfeited**
+- **Habit Performance Metrics Grid:** Active streak, best streak, NIM won, total staked, completed challenges, and forfeited count.
+- **Verified Transaction History:** Real-time on-chain transaction log populated from verified blockchain records:
+  - **Types:** Stake Committed (`-X NIM`), Stake + Reward Payout (`+X NIM`), Bonus Reward (`+X NIM`)
+  - **Filters:** All, Stakes, Payouts
+  - **Status:** Confirmed (green), Pending / Verifying (gold), Failed (red)
+  - **Explorer Links:** Direct link to every transaction hash on Nimiq Watch (`https://nimiq.watch/#<hash>`)
+  - **Actionable Empty State:** Quick CTA to browse active challenges when no transactions exist.
+- **Notification Preferences Shortcut:** Quick button to configure in-app reminder settings.
 
 ---
+
+### 7. 🔔 In-App Accountability Notification Center
+> *Non-spammy, accountability-focused reminders and lifecycle alerts.*
+
+NimStreak includes a dedicated **In-App Notification Center** accessible via the Bell icon in the top navigation:
+- **6 Accountability Notification Types:**
+  1. 🔥 **Daily Check-in:** *"Your [challenge] streak is waiting. You haven't checked in today."*
+  2. ⚠️ **Streak at Risk:** *"Don't break your streak! You still need to check in today for [challenge]."*
+  3. 🚀 **Challenge Starting:** *"Your challenge [challenge] starts today. Time to make it count!"*
+  4. 🎉 **Challenge Completed:** *"Challenge complete! Your stake has been returned and your reward is being processed."*
+  5. 💰 **Reward Confirmed:** *"Your NimStreak reward of [NIM] has arrived. View your transaction."*
+  6. 👀 **Challenge Invitation:** *"You've been invited to a NimStreak challenge. Think you can finish it?"*
+- **Clickable Actions:** Tapping notifications takes you directly to the relevant Challenge Detail check-in view, Challenge Results, or Transaction History.
+- **Notification Preferences:** Toggles for Daily Check-in Reminders, Challenge Lifecycle Updates, Reward Alerts, and Invitations, plus a preferred daily reminder time selector (Morning, Midday, Afternoon, Evening, Night).
+- **Anti-Spam & Deduplication Rules:**
+  - Maximum 1 daily reminder per active challenge per day.
+  - **Zero reminders if already checked in today.**
+  - Exactly 1 completion notification per challenge.
+  - Exactly 1 reward confirmation notification per payout hash.
+  - Zero duplicate alerts triggered simply by reopening the application.
 
 ## 💰 Reward Model & Quitter Pool
 
@@ -243,6 +312,9 @@ To protect treasury solvency, the total bonus payout across **all finishers in a
 - 🎖️ **Badge & Achievement System:** Unlock badges like *First Step* (creating your first challenge), *7-Day Warrior*, and *Centurion*.
 - 🔗 **Private Challenges & Invite Codes:** Generate custom 6-character codes to rally your team, gym buddies, or DAO.
 - 📱 **Mobile-First Responsive Design:** Built specifically for modern mobile viewports inside the Nimiq Pay webview.
+- 🔔 **In-App Accountability Notifications:** Anti-spam notification engine with customizable reminder times and deduplication.
+- 📜 **On-Chain Transaction History:** Verified ledger of every stake committed and payout received with Nimiq Watch links.
+- 🔄 **Repeat Challenge & Deep Link Preview:** Instant challenge rematches and unauthenticated public preview of shared challenges.
 - 🔒 **Sequential Payout Mutex:** Server-side async lock prevents double-claims and race conditions during simultaneous reward withdrawals.
 
 ---
@@ -295,6 +367,7 @@ NimStreak decouples **Profile Identity** from **On-chain Funding Wallets**:
 
 ## ⚠️ Known Limitations & Transparency
 
+- **In-App Notification Engine:** Notifications are currently delivered inside the application via the In-App Notification Center. Background Web Push notifications are not supported because Nimiq Pay mobile WebViews do not currently expose native push tokens or background service worker push endpoints. The architecture is decoupled to easily support native push once supported by the Nimiq Pay environment.
 - **Treasury Custody Model:** Stakes are held in the secure NimStreak treasury rather than a smart contract. The competition version prioritizes rapid settlement and seamless user experience over decentralized escrow.
 - **Self-Reported Check-ins:** Proof is currently based on honor-system check-ins and notes. Automatic biometric/GPS verification is slated for future milestones.
 - **Single-Node Mutex:** The in-memory payout queue secures a single backend instance. Multi-region horizontal scaling will adopt Redis-backed distributed locks.
@@ -333,7 +406,7 @@ nimstreak/
 │   │   ├── nimstreak-payout.js  # Payout engine, mutex & bonus math
 │   │   ├── constants/           # Network endpoints
 │   │   └── redis.js             # Socket.IO Redis adapter
-│   ├── tests/                   # Test suite (50 tests, 6 suites)
+│   ├── tests/                   # Test suite (66 tests, 8 suites)
 │   └── package.json
 ├── .gitignore
 ├── LICENSE                      # MIT

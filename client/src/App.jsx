@@ -13,7 +13,15 @@ import { AppBottomNav, NimiqIdenticon } from "./components/ui/index.js";
 import { useNimiqWallet } from "./hooks/use-nimiq-wallet.js";
 import { API_BASE_URL, SOCKET_SERVER_URL, DEFAULT_TREASURY_ADDRESS } from "./config/index.js";
 import { shortenWalletAddress } from "./utils/ui-helpers.js";
-import { Smartphone, X, Copy } from "lucide-react";
+import { Smartphone, X, Copy, Bell } from "lucide-react";
+import { NotificationCenter } from "./components/ui/notification-center.jsx";
+import { NotificationPreferencesModal } from "./components/ui/notification-preferences-modal.jsx";
+import {
+  evaluateNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  getStoredNotifications,
+} from "./utils/notification-engine.js";
 
 export default function App() {
   const [screen, setScreen] = useState("home");
@@ -28,6 +36,10 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
   const [initialInviteCode, setInitialInviteCode] = useState("");
   const [pendingChallengeId, setPendingChallengeId] = useState(null);
+  const [repeatChallengeData, setRepeatChallengeData] = useState(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [notifications, setNotifications] = useState(() => getStoredNotifications());
 
   // Parse share/invite deep link query parameters on initial mount
   useEffect(() => {
@@ -59,6 +71,47 @@ export default function App() {
     setManualAddress,
     pay: sendNimiqPayment,
   } = useNimiqWallet();
+
+  
+  // Helper for user-friendly transaction feedback adhering to safety UX rules
+  const handleTxError = (err) => {
+    const msg = err?.message || "";
+    if (/cancel|abort|reject|declined|closed|denied/i.test(msg)) {
+      showToast("Payment cancelled. No stake was committed.");
+      return;
+    }
+    if (/timeout|pending|verifying|waiting/i.test(msg)) {
+      showToast("Transaction submitted. On-chain verification is in progress...");
+      return;
+    }
+    showToast(`Transaction failed: ${msg}. Your stake was not committed. You can safely try again.`);
+  };
+
+  // Evaluate in-app accountability notifications whenever data refreshes
+  useEffect(() => {
+    const res = evaluateNotifications({
+      challenges,
+      myChallenges: myChallengesData,
+      payouts: profileData?.payouts || [],
+      activeInvite: initialInviteCode ? { code: initialInviteCode } : null,
+    });
+    setNotifications(res.allNotifications);
+  }, [challenges, myChallengesData, profileData, initialInviteCode]);
+
+  const handleNotificationClick = (notif) => {
+    const updated = markNotificationAsRead(notif.id);
+    setNotifications(updated);
+    setNotificationsOpen(false);
+
+    if (notif.action) {
+      if (notif.action.screen === "challenge-detail" && notif.action.challengeId) {
+        setSelectedChallengeId(notif.action.challengeId);
+        setScreen("challenge-detail");
+      } else if (notif.action.screen === "profile") {
+        setScreen("profile");
+      }
+    }
+  };
 
   // Socket instance
   const socket = useMemo(() => {
@@ -248,7 +301,7 @@ export default function App() {
       setSelectedChallengeId(created.id);
       setScreen("challenge-detail");
     } catch (err) {
-      showToast(`❌ ${err.message || "Failed to create challenge"}`);
+      handleTxError(err);
       if (err.message && (err.message.includes("Nimiq Pay Mobile App") || err.message.includes("payment provider"))) {
         setDesktopNoticeOpen(true);
       }
@@ -300,11 +353,11 @@ export default function App() {
         throw new Error(errJson.error || "Failed to join challenge");
       }
 
-      showToast("🎉 Successfully staked and joined challenge!");
+      showToast("🎉 Stake confirmed on-chain! Challenge joined.");
       await fetchChallenges();
       await fetchUserData();
     } catch (err) {
-      showToast(`❌ ${err.message || "Failed to join challenge"}`);
+      handleTxError(err);
       if (err.message && (err.message.includes("Nimiq Pay Mobile App") || err.message.includes("payment provider"))) {
         setDesktopNoticeOpen(true);
       }
@@ -440,8 +493,10 @@ export default function App() {
     await fetchUserData();
   };
 
-  // REQUIREMENT: User must be signed in with wallet to view main interface
-  if (!walletAddress) {
+  const isPreviewingChallenge = !walletAddress && Boolean(selectedChallengeId || pendingChallengeId);
+
+  // If user is unauthenticated and NOT previewing a shared challenge, show WelcomeScreen
+  if (!walletAddress && !isPreviewingChallenge) {
     return (
       <div className="nimstreak-app nimstreak-app--welcome">
         {toastMessage && (
@@ -456,9 +511,7 @@ export default function App() {
           isConnecting={isConnecting}
           walletStatus={walletStatus}
           inviteHint={
-            pendingChallengeId
-              ? "You have been invited to a challenge! Connect your wallet to join."
-              : initialInviteCode
+            initialInviteCode
               ? `Invite code ${initialInviteCode} detected! Connect your wallet to join.`
               : ""
           }
@@ -491,18 +544,65 @@ export default function App() {
           <span className="brand-name">Nim<span className="brand-name--gold">Streak</span></span>
         </div>
 
-        <div className="top-nav-right">
-          <button
-            type="button"
-            className="wallet-pill-btn"
-            onClick={() => setScreen("profile")}
-          >
-            <NimiqIdenticon address={walletAddress} size={22} />
-            <span className="wallet-pill-addr">{shortenWalletAddress(walletAddress, 4, 4)}</span>
-            {walletBalance !== undefined && (
-              <span className="wallet-pill-bal">{walletBalance} NIM</span>
-            )}
-          </button>
+        <div className="top-nav-right" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {walletAddress && (
+            <button
+              type="button"
+              className="notif-bell-btn"
+              onClick={() => setNotificationsOpen(true)}
+              aria-label="Open notifications"
+              style={{
+                position: "relative",
+                background: "var(--navy-surface)",
+                border: "1px solid var(--navy-border)",
+                borderRadius: "0.5rem",
+                padding: "0.45rem",
+                color: "var(--gold)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <Bell size={18} />
+              {notifications.filter((n) => !n.read).length > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "-3px",
+                    right: "-3px",
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    background: "var(--gold)",
+                  }}
+                />
+              )}
+            </button>
+          )}
+
+          {walletAddress ? (
+            <button
+              type="button"
+              className="wallet-pill-btn"
+              onClick={() => setScreen("profile")}
+            >
+              <NimiqIdenticon address={walletAddress} size={22} />
+              <span className="wallet-pill-addr">{shortenWalletAddress(walletAddress, 4, 4)}</span>
+              {walletBalance !== undefined && (
+                <span className="wallet-pill-bal">{walletBalance} NIM</span>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--gold btn--sm"
+              onClick={handleSignIn}
+              style={{ padding: "0.4rem 0.8rem", fontSize: "0.82rem" }}
+            >
+              Connect Wallet
+            </button>
+          )}
         </div>
       </header>
 
@@ -533,6 +633,7 @@ export default function App() {
             walletAddress={walletAddress}
             onConnectWallet={handleSignIn}
             initialInviteCode={initialInviteCode}
+            onCreateChallengeNav={() => setScreen("create-challenge")}
           />
         )}
 
@@ -540,21 +641,39 @@ export default function App() {
           <CreateChallengeScreen
             walletAddress={walletAddress}
             onConnectWallet={handleSignIn}
-            onCreateChallenge={handleCreateChallenge}
-            onCancel={() => setScreen("home")}
+            onCreateChallenge={async (params) => {
+              await handleCreateChallenge(params);
+              setRepeatChallengeData(null);
+            }}
+            onCancel={() => {
+              setRepeatChallengeData(null);
+              setScreen("home");
+            }}
             submitting={submitting}
+            initialValues={repeatChallengeData}
           />
         )}
 
-        {screen === "challenge-detail" && selectedChallengeId && (
+        {(screen === "challenge-detail" || isPreviewingChallenge) && (selectedChallengeId || pendingChallengeId) && (
           <ChallengeDetailScreen
-            challengeId={selectedChallengeId}
+            challengeId={selectedChallengeId || pendingChallengeId}
             walletAddress={walletAddress}
             onConnectWallet={handleSignIn}
             onCheckin={handleCheckin}
             onJoinChallenge={handleJoinChallenge}
             onClaim={handleClaimReward}
-            onBack={() => setScreen("browse")}
+            onRepeatChallenge={(params) => {
+              setRepeatChallengeData(params);
+              setScreen("create-challenge");
+            }}
+            onBack={() => {
+              if (isPreviewingChallenge) {
+                setSelectedChallengeId(null);
+                setPendingChallengeId(null);
+              } else {
+                setScreen("browse");
+              }
+            }}
             apiBaseUrl={API_BASE_URL}
             socket={socket}
           />
@@ -585,6 +704,7 @@ export default function App() {
             profileData={profileData}
             onUpdateDisplayName={handleUpdateDisplayName}
             onSelectChallenge={handleSelectChallenge}
+            onBrowseChallenges={() => setScreen("browse")}
           />
         )}
       </main>
@@ -598,6 +718,29 @@ export default function App() {
         }}
         walletAddress={walletAddress}
         onConnectWallet={handleSignIn}
+      />
+
+      {/* In-App Accountability Notification Center */}
+      <NotificationCenter
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+        onMarkAllRead={() => setNotifications(markAllNotificationsAsRead())}
+        onNotificationClick={handleNotificationClick}
+        onOpenSettings={() => {
+          setNotificationsOpen(false);
+          setNotifPrefsOpen(true);
+        }}
+        onBrowseChallenges={() => {
+          setNotificationsOpen(false);
+          setScreen("browse");
+        }}
+      />
+
+      {/* In-App Notification Preferences Modal */}
+      <NotificationPreferencesModal
+        isOpen={notifPrefsOpen}
+        onClose={() => setNotifPrefsOpen(false)}
       />
 
       {/* Desktop Nimiq Pay Staking Environment Guidance Modal */}

@@ -178,14 +178,44 @@ export function MyStreaksScreen({
                 </button>
               </div>
             )}
-            {tab === "completed" && activeList.length > 0 && (
-              <div className="empty-state-actions">
+            {tab === "completed" && (
+              <div className="empty-state-actions" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "center", marginTop: "1rem" }}>
+                {activeList.length > 0 ? (
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--md"
+                    onClick={() => setTab("active")}
+                  >
+                    View Active Streaks ({activeList.length})
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn--gold btn--md"
+                      onClick={() => onNavigate("browse")}
+                    >
+                      Browse Challenges
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--md"
+                      onClick={() => onNavigate("create-challenge")}
+                    >
+                      + Create Challenge
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            {tab === "failed" && (
+              <div className="empty-state-actions" style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
                 <button
                   type="button"
                   className="btn btn--ghost btn--md"
                   onClick={() => setTab("active")}
                 >
-                  View Active Streaks ({activeList.length})
+                  View Active Streaks
                 </button>
               </div>
             )}

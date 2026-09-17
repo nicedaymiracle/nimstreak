@@ -20,6 +20,7 @@ export function BrowseScreen({
   walletAddress,
   onConnectWallet,
   initialInviteCode = "",
+  onCreateChallengeNav,
 }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -181,7 +182,34 @@ export function BrowseScreen({
           <div className="empty-state">
             <span className="empty-state__icon" aria-hidden="true"><Target size={36} className="text-gold" /></span>
             <h3>No challenges found</h3>
-            <p>Be the first to start a challenge in this category!</p>
+            <p>
+              {searchQuery || selectedCategory !== "all"
+                ? "No active challenges match your current search or category filter."
+                : "No active challenges available right now. Be the first to start one!"}
+            </p>
+            <div className="empty-state-actions" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "center", marginTop: "1rem" }}>
+              {(searchQuery || selectedCategory !== "all") && (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--md"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedCategory("all");
+                  }}
+                >
+                  Clear Filters
+                </button>
+              )}
+              {onCreateChallengeNav && (
+                <button
+                  type="button"
+                  className="btn btn--gold btn--md"
+                  onClick={onCreateChallengeNav}
+                >
+                  + Create Challenge
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           filteredChallenges.map((item) => {

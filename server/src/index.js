@@ -803,6 +803,22 @@ app.get("/api/my-challenges/:walletAddress", async (req, res) => {
   }
 });
 
+// Get user transaction history (stakes, payouts, rewards)
+app.get("/api/transactions/:walletAddress", async (req, res) => {
+  const walletAddress = normalizeAddress(req.params.walletAddress);
+  try {
+    const transactions = await db.getUserTransactions(walletAddress);
+    return res.json({
+      success: true,
+      transactions: transactions || [],
+      count: transactions ? transactions.length : 0,
+    });
+  } catch (err) {
+    console.error("[api:transactions] error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch user transactions" });
+  }
+});
+
 // Get badges for user
 app.get("/api/badges/:walletAddress", async (req, res) => {
   const walletAddress = normalizeAddress(req.params.walletAddress);

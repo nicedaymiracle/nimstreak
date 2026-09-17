@@ -15,6 +15,10 @@ import {
   Zap,
   Medal,
   Sparkles,
+  RotateCcw,
+  RefreshCw,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { NimiqIdenticon } from "../ui/avatar-circle.jsx";
 import { shortenWalletAddress, shortenHash } from "../../utils/ui-helpers.js";
@@ -31,6 +35,7 @@ export function ChallengeDetailScreen({
   onCheckin,
   onJoinChallenge,
   onClaim,
+  onRepeatChallenge,
   onBack,
   apiBaseUrl,
   socket,
@@ -230,17 +235,18 @@ export function ChallengeDetailScreen({
     const shareUrl = `${window.location.origin}/?challenge=${encodeURIComponent(challengeId)}${
       inviteCode ? `&invite=${encodeURIComponent(inviteCode)}` : ""
     }`;
-    const shareData = {
-      title: `Join my "${challengeData?.challenge?.title || "Habit"}" streak on NimStreak!`,
-      text: `Stake ${challengeData?.challenge?.stake_nim || 0.5} NIM and build this daily habit with me.${
-        inviteCode ? ` Invite code: ${inviteCode}` : ""
-      }`,
-      url: shareUrl,
-    };
+    const cleanMessage = `🔥 Join my NimStreak challenge: ${challengeData?.challenge?.title || "Habit"}
+🎯 Stake: ${challengeData?.challenge?.stake_nim || 5} NIM
+⏱️ Duration: ${challengeData?.challenge?.duration_days || 7} Days
+Join here: ${shareUrl}`;
 
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share(shareData);
+        await navigator.share({
+          title: `NimStreak: ${challengeData?.challenge?.title || "Habit"}`,
+          text: cleanMessage,
+          url: shareUrl,
+        });
         setShareFeedback("Shared successfully! 🚀");
         setTimeout(() => setShareFeedback(""), 3000);
         return;
@@ -251,8 +257,8 @@ export function ChallengeDetailScreen({
     }
 
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      setShareFeedback("Link copied! 📋");
+      await navigator.clipboard.writeText(cleanMessage);
+      setShareFeedback("Challenge invite copied! 📋");
       setTimeout(() => setShareFeedback(""), 3000);
     } catch (clipErr) {
       console.warn("Could not copy link:", clipErr);
@@ -337,9 +343,15 @@ export function ChallengeDetailScreen({
       <section className="detail-hero">
         <div className="detail-hero__top">
           <h1 className="detail-title">{challenge.title}</h1>
-          {isParticipant && (
-            <div className="detail-participant-status">
-              {isCompleted ? (
+          <div className="detail-participant-status">
+            {isParticipant ? (
+              hasClaimed ? (
+                <span className="status-pill status-pill--paid"><Coins size={13} className="inline-icon" /> Reward Paid & Confirmed</span>
+              ) : payoutRecord?.status === "verifying" ? (
+                <span className="status-pill status-pill--processing"><RefreshCw size={13} className="inline-icon animate-spin" /> Payout Verifying</span>
+              ) : payoutRecord?.status === "failed" ? (
+                <span className="status-pill status-pill--forfeited"><AlertTriangle size={13} className="inline-icon" /> Payout Retry Needed</span>
+              ) : isCompleted ? (
                 <span className="status-pill status-pill--won"><Trophy size={13} className="inline-icon" /> Finished & Won</span>
               ) : isFailed ? (
                 <span className="status-pill status-pill--forfeited"><XCircle size={13} className="inline-icon" /> Stake Forfeited</span>
@@ -347,9 +359,13 @@ export function ChallengeDetailScreen({
                 <span className="status-pill status-pill--secured"><CheckCircle2 size={13} className="inline-icon" /> Checked in today</span>
               ) : (
                 <span className="status-pill status-pill--pending">⏳ Check-in needed today</span>
-              )}
-            </div>
-          )}
+              )
+            ) : isChallengeEnded ? (
+              <span className="status-pill status-pill--neutral">Challenge Ended</span>
+            ) : (
+              <span className="status-pill status-pill--open"><ShieldCheck size={13} className="inline-icon" /> Registration Open</span>
+            )}
+          </div>
         </div>
 
         {challenge.description && <p className="detail-desc">{challenge.description}</p>}
@@ -432,69 +448,165 @@ export function ChallengeDetailScreen({
         </div>
       </section>
 
-      {/* WINNER CLAIM REWARD SECTION */}
-      {isParticipant && !isFailed && isCompleted && (
-        <section className="claim-reward-card">
+      {/* COMPLETED CHALLENGE RESULTS & WINNER REWARD SECTION */}
+      {(isCompleted || isChallengeEnded) && (
+        <section className="claim-reward-card challenge-results-section">
           <div className="claim-reward-card__icon"><Trophy size={32} className="text-gold" /></div>
-          <h3 className="claim-reward-card__title">Challenge Completed! Streak Won!</h3>
+          <h3 className="claim-reward-card__title">
+            {isCompleted ? "Challenge Complete! Streak Won!" : "Challenge Results"}
+          </h3>
           <p className="claim-reward-card__desc">
-            You stayed consistent through all {duration} days. Complete your streak to reclaim your stake and earn from forfeited stakes, plus a NimStreak bonus.
+            {isCompleted
+              ? `You stayed consistent through all ${duration} days. Reclaim your stake plus your share of forfeited stakes and streak bonuses!`
+              : `This ${duration}-day challenge has ended. Review the final participant results below.`}
           </p>
 
-          <div className="payout-preview-card" style={{ marginTop: "1rem", marginBottom: "1.25rem", textAlign: "left" }}>
-            <div className="payout-preview-card__header">
-              <span>🪙</span>
-              <span>Reward Breakdown</span>
+          {/* Comprehensive Results Breakdown */}
+          <div className="challenge-results-grid" style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+            gap: "0.6rem",
+            margin: "1rem 0",
+            textAlign: "center",
+          }}>
+            <div className="result-metric-card" style={{ padding: "0.75rem", borderRadius: "0.75rem", background: "var(--navy-surface)", border: "1px solid var(--navy-border)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>Participants</span>
+              <strong style={{ fontSize: "1.1rem", color: "#fff" }}>{stats?.totalParticipants || challengeData.participants?.length || 0}</strong>
             </div>
-            <div className="preview-row">
-              <span style={{ color: "var(--ink-muted)" }}>Original Stake Return</span>
-              <span style={{ fontWeight: 600 }}>{userStakeNim.toFixed(2)} NIM</span>
+            <div className="result-metric-card" style={{ padding: "0.75rem", borderRadius: "0.75rem", background: "var(--navy-surface)", border: "1px solid var(--navy-border)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>Finishers</span>
+              <strong style={{ fontSize: "1.1rem", color: "#4ade80" }}>{stats?.finishers || (challengeData.participants?.filter(p => p.status === 'completed')?.length) || 0}</strong>
             </div>
-            <div className="preview-row">
-              <span style={{ color: "var(--ink-muted)" }}>Forfeited Pool Reward</span>
-              <span style={{ fontWeight: 600, color: "var(--gold-primary)" }}>+{forfeitedRewardNim.toFixed(2)} NIM</span>
+            <div className="result-metric-card" style={{ padding: "0.75rem", borderRadius: "0.75rem", background: "var(--navy-surface)", border: "1px solid var(--navy-border)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>Forfeited</span>
+              <strong style={{ fontSize: "1.1rem", color: "#f87171" }}>{stats?.forfeitedParticipants || (challengeData.participants?.filter(p => p.status === 'failed')?.length) || 0}</strong>
             </div>
-            <div className="preview-row">
-              <span style={{ color: "var(--ink-muted)" }}>
-                NimStreak Bonus {stats?.isBonusScaled ? "(scaled to challenge budget)" : "(50% max 5 NIM)"}
-              </span>
-              <span style={{ fontWeight: 600, color: "#22c55e" }}>+{nimStreakBonusNim.toFixed(2)} NIM</span>
-            </div>
-            <div className="preview-divider" />
-            <div className="preview-row preview-row--total">
-              <span>Total Payout</span>
-              <span style={{ color: "var(--gold-primary)", fontSize: "1.05rem" }}>{estimatedTotalPayout} NIM</span>
-            </div>
+            {isParticipant && (
+              <div className="result-metric-card" style={{ padding: "0.75rem", borderRadius: "0.75rem", background: "var(--navy-surface)", border: "1px solid var(--navy-border)" }}>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>Days Completed</span>
+                <strong style={{ fontSize: "1.1rem", color: "var(--gold)" }}>{Math.min(currentStreak, duration)}/{duration}</strong>
+              </div>
+            )}
           </div>
 
-          {hasClaimed ? (
-            <div className="claim-reward-claimed-banner">
-              <div>✅ <strong>Reward Claimed & Sent ({payoutRecord.amount_nim} NIM)</strong></div>
-              {payoutRecord.tx_hash && (
-                <div className="claim-reward-tx-link">
-                  <a
-                    href={`https://nimiq.watch/tx/${payoutRecord.tx_hash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    View on Nimiq Watch ↗ ({shortenHash(payoutRecord.tx_hash)})
-                  </a>
-                </div>
-              )}
+          {/* Reward Breakdown (Only if finisher) */}
+          {isParticipant && !isFailed && isCompleted && (
+            <div className="payout-preview-card" style={{ marginTop: "1rem", marginBottom: "1.25rem", textAlign: "left" }}>
+              <div className="payout-preview-card__header">
+                <span>🪙</span>
+                <span>Your Payout Breakdown</span>
+              </div>
+              <div className="preview-row">
+                <span style={{ color: "var(--ink-muted)" }}>Original Stake Return</span>
+                <span style={{ fontWeight: 600 }}>{userStakeNim.toFixed(2)} NIM</span>
+              </div>
+              <div className="preview-row">
+                <span style={{ color: "var(--ink-muted)" }}>Forfeited Pool Reward</span>
+                <span style={{ fontWeight: 600, color: "var(--gold-primary)" }}>+{forfeitedRewardNim.toFixed(2)} NIM</span>
+              </div>
+              <div className="preview-row">
+                <span style={{ color: "var(--ink-muted)" }}>
+                  NimStreak Bonus {stats?.isBonusScaled ? "(scaled to challenge budget)" : "(50% max 5 NIM)"}
+                </span>
+                <span style={{ fontWeight: 600, color: "#22c55e" }}>+{nimStreakBonusNim.toFixed(2)} NIM</span>
+              </div>
+              <div className="preview-divider" />
+              <div className="preview-row preview-row--total">
+                <span>Total Payout</span>
+                <span style={{ color: "var(--gold-primary)", fontSize: "1.05rem" }}>{estimatedTotalPayout} NIM</span>
+              </div>
             </div>
-          ) : (
-            <div>
+          )}
+
+          {/* Claim and Payout Status */}
+          {isParticipant && !isFailed && isCompleted && (
+            hasClaimed ? (
+              <div className="claim-reward-claimed-banner" style={{ marginBottom: "1rem" }}>
+                <div>✅ <strong>Reward Confirmed & Paid ({payoutRecord.amount_nim} NIM)</strong></div>
+                {payoutRecord.tx_hash && (
+                  <div className="claim-reward-tx-link">
+                    <a
+                      href={`https://nimiq.watch/#${payoutRecord.tx_hash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
+                    >
+                      <span>View on Nimiq Watch ({shortenHash(payoutRecord.tx_hash)})</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                )}
+              </div>
+            ) : payoutRecord?.status === "verifying" ? (
+              <div className="claim-reward-verifying-banner" style={{
+                padding: "0.85rem",
+                borderRadius: "0.75rem",
+                background: "rgba(234, 179, 8, 0.1)",
+                border: "1px solid rgba(234, 179, 8, 0.3)",
+                color: "var(--gold)",
+                marginBottom: "1rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem"
+              }}>
+                <RefreshCw size={18} className="animate-spin text-gold" />
+                <div>
+                  <strong>Payout Verification in Progress:</strong> Your reward transaction is confirming on the Nimiq blockchain.
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "1rem" }}>
+                <button
+                  type="button"
+                  className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
+                  onClick={handleClaimPayout}
+                  disabled={claiming}
+                >
+                  {claiming ? "Signing Treasury Payout..." : <><Coins size={16} className="inline-icon" /> CLAIM {estimatedTotalPayout} NIM</>}
+                </button>
+                {claimMessage && (
+                  <p className="claim-reward-msg">{claimMessage}</p>
+                )}
+              </div>
+            )
+          )}
+
+          {/* Repeat Challenge Action */}
+          {onRepeatChallenge && (
+            <div className="repeat-challenge-action" style={{
+              marginTop: "1.25rem",
+              paddingTop: "1rem",
+              borderTop: "1px solid var(--navy-border)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}>
               <button
                 type="button"
-                className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
-                onClick={handleClaimPayout}
-                disabled={claiming}
+                className="btn btn--secondary btn--full"
+                onClick={() => onRepeatChallenge({
+                  title: challenge.title,
+                  description: challenge.description,
+                  category: challenge.category,
+                  duration: duration,
+                  stake_nim: challenge.stake_nim,
+                  type: challenge.type,
+                })}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.4rem",
+                  borderColor: "rgba(234, 179, 8, 0.4)",
+                  color: "var(--gold)",
+                }}
               >
-                {claiming ? "Signing Treasury Payout..." : <><Coins size={16} className="inline-icon" /> CLAIM {estimatedTotalPayout} NIM</>}
+                <RotateCcw size={16} /> Repeat Challenge
               </button>
-              {claimMessage && (
-                <p className="claim-reward-msg">{claimMessage}</p>
-              )}
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                Pre-fills title, duration & stake. You review and authorize the new challenge yourself.
+              </span>
             </div>
           )}
         </section>
@@ -615,13 +727,23 @@ export function ChallengeDetailScreen({
             </div>
           </div>
 
-          <button
-            type="button"
-            className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
-            onClick={handleJoin}
-          >
-            Stake {challenge.stake_nim} NIM & Join Challenge
-          </button>
+          {!walletAddress ? (
+            <button
+              type="button"
+              className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
+              onClick={onConnectWallet}
+            >
+              Connect Nimiq Pay to Stake & Join
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--gold-glow btn--lg btn--full btn--hero-checkin"
+              onClick={handleJoin}
+            >
+              Stake {challenge.stake_nim} NIM & Join Challenge
+            </button>
+          )}
         </section>
       )}
 

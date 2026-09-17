@@ -21,13 +21,14 @@ export function CreateChallengeScreen({
   onCreateChallenge,
   onCancel,
   submitting = false,
+  initialValues = null,
 }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("fitness");
-  const [type, setType] = useState("public"); // solo, group, public
-  const [durationDays, setDurationDays] = useState(30);
-  const [stakeNim, setStakeNim] = useState(DEFAULT_STAKE_NIM);
+  const [title, setTitle] = useState(initialValues?.title || "");
+  const [description, setDescription] = useState(initialValues?.description || "");
+  const [category, setCategory] = useState(initialValues?.category || "fitness");
+  const [type, setType] = useState(initialValues?.type || "public"); // solo, group, public
+  const [durationDays, setDurationDays] = useState(Number(initialValues?.duration || initialValues?.duration_days) || 30);
+  const [stakeNim, setStakeNim] = useState(Number(initialValues?.stake_nim || initialValues?.stake) || DEFAULT_STAKE_NIM);
   const [checkinType, setCheckinType] = useState("tap"); // tap, photo, text
   const [maxParticipants, setMaxParticipants] = useState(50);
   const [startDateOffset, setStartDateOffset] = useState(0); // 0 = today, 1 = tomorrow

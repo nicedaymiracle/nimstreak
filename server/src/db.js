@@ -1116,6 +1116,150 @@ export async function recordPayout(payoutData) {
 }
 
 // ── User Challenges ──────────────────────────────────────────────────────────
+export async function getUserTransactions(walletAddress) {
+  const norm = normalizeAddress(walletAddress);
+  const lookupAddrs = getAssociatedAddresses(walletAddress);
+  const lookupSet = new Set(lookupAddrs);
+
+  const transactions = [];
+  const seenTxIds = new Set();
+
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      const stakePromises = [];
+      for (const addr of lookupAddrs) {
+        stakePromises.push(
+          dbInstance.collection("challenge_participants").where("wallet_address", "==", addr).get(),
+          dbInstance.collection("challenge_participants").where("profile_wallet", "==", addr).get()
+        );
+      }
+      const snaps = await Promise.all(stakePromises);
+      for (const snap of snaps) {
+        for (const doc of snap.docs) {
+          const data = doc.data();
+          if (data && data.stake_tx_hash) {
+            const txKey = `stake_${data.stake_tx_hash}`;
+            if (!seenTxIds.has(txKey)) {
+              seenTxIds.add(txKey);
+              const chal = await getChallengeById(data.challenge_id);
+              transactions.push({
+                id: txKey,
+                type: "stake",
+                challenge_id: data.challenge_id,
+                challenge_title: chal ? chal.title : "Challenge Stake",
+                amount: Number(chal?.stake_amount || data.stake_amount || 0),
+                status: "confirmed",
+                tx_hash: data.stake_tx_hash,
+                explorer_url: `https://nimiq.watch/#${data.stake_tx_hash}`,
+                timestamp: data.joined_at || chal?.created_at || new Date().toISOString(),
+                wallet_address: data.wallet_address,
+              });
+            }
+          }
+        }
+      }
+
+      const payoutPromises = [];
+      for (const addr of lookupAddrs) {
+        payoutPromises.push(
+          dbInstance.collection("nimstreak_payouts").where("wallet_address", "==", addr).get(),
+          dbInstance.collection("nimstreak_payouts").where("recipient_address", "==", addr).get()
+        );
+      }
+      const pSnaps = await Promise.all(payoutPromises);
+      for (const snap of pSnaps) {
+        for (const doc of snap.docs) {
+          const py = doc.data();
+          if (py) {
+            const txKey = py.tx_hash ? `payout_${py.tx_hash}` : `payout_${py.id || doc.id}`;
+            if (!seenTxIds.has(txKey)) {
+              seenTxIds.add(txKey);
+              const chal = await getChallengeById(py.challenge_id);
+              let status = "pending";
+              if (py.status === "sent") status = "confirmed";
+              else if (py.status === "failed") status = "failed";
+
+              transactions.push({
+                id: txKey,
+                type: py.payout_type === "bonus" ? "bonus" : "payout",
+                challenge_id: py.challenge_id,
+                challenge_title: chal ? chal.title : "Challenge Payout",
+                amount: Number(py.amount_nim || py.total_payout_nim || 0),
+                bonus_nim: Number(py.bonus_nim || 0),
+                status,
+                tx_hash: py.tx_hash || null,
+                explorer_url: py.tx_hash ? `https://nimiq.watch/#${py.tx_hash}` : null,
+                timestamp: py.created_at || py.paid_at || new Date().toISOString(),
+                wallet_address: py.wallet_address || py.recipient_address,
+              });
+            }
+          }
+        }
+      }
+
+      return transactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    } catch (err) {
+      console.warn("[firestore:getUserTransactions] error:", err.message);
+    }
+  }
+
+  for (const p of memoryStore.participants.values()) {
+    const pFunding = normalizeAddress(p.wallet_address);
+    const resolvedProfile = resolveProfileWallet(p.profile_wallet, pFunding);
+    if (lookupSet.has(pFunding) || lookupSet.has(resolvedProfile)) {
+      if (p.stake_tx_hash) {
+        const txKey = `stake_${p.stake_tx_hash}`;
+        if (!seenTxIds.has(txKey)) {
+          seenTxIds.add(txKey);
+          const chal = memoryStore.challenges.get(p.challenge_id);
+          transactions.push({
+            id: txKey,
+            type: "stake",
+            challenge_id: p.challenge_id,
+            challenge_title: chal ? chal.title : "Challenge Stake",
+            amount: Number(chal?.stake_amount || p.stake_amount || 0),
+            status: "confirmed",
+            tx_hash: p.stake_tx_hash,
+            explorer_url: `https://nimiq.watch/#${p.stake_tx_hash}`,
+            timestamp: p.joined_at || chal?.created_at || new Date().toISOString(),
+            wallet_address: p.wallet_address,
+          });
+        }
+      }
+    }
+  }
+
+  for (const py of memoryStore.payouts.values()) {
+    const pyAddr = normalizeAddress(py.wallet_address || py.recipient_address);
+    if (lookupSet.has(pyAddr)) {
+      const txKey = py.tx_hash ? `payout_${py.tx_hash}` : `payout_${py.id}`;
+      if (!seenTxIds.has(txKey)) {
+        seenTxIds.add(txKey);
+        const chal = memoryStore.challenges.get(py.challenge_id);
+        let status = "pending";
+        if (py.status === "sent") status = "confirmed";
+        else if (py.status === "failed") status = "failed";
+
+        transactions.push({
+          id: txKey,
+          type: py.payout_type === "bonus" ? "bonus" : "payout",
+          challenge_id: py.challenge_id,
+          challenge_title: chal ? chal.title : "Challenge Payout",
+          amount: Number(py.amount_nim || py.total_payout_nim || 0),
+          bonus_nim: Number(py.bonus_nim || 0),
+          status,
+          tx_hash: py.tx_hash || null,
+          explorer_url: py.tx_hash ? `https://nimiq.watch/#${py.tx_hash}` : null,
+          timestamp: py.created_at || py.paid_at || new Date().toISOString(),
+          wallet_address: py.wallet_address || py.recipient_address,
+        });
+      }
+    }
+  }
+
+  return transactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+}
+
 export async function getUserChallenges(walletAddress) {
   const norm = normalizeAddress(walletAddress);
   const lookupAddrs = getAssociatedAddresses(walletAddress);
@@ -1438,6 +1582,7 @@ export default {
   getChallengePayouts,
   recordPayout,
   getUserChallenges,
+  getUserTransactions,
   getLeaderboard,
   getParticipantCalendar,
   getChallengeLeaderboard,
