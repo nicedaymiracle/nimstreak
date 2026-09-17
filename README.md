@@ -246,24 +246,38 @@ The **Player Profile** showcases your verifiable blockchain reputation:
 
 ---
 
-### 7. 🔔 In-App Accountability Notification Center
-> *Non-spammy, accountability-focused reminders and lifecycle alerts.*
+### 7. 🔔 Dual Device Push & In-App Notification Center
+> *True background device push notifications with seamless in-app fallback and anti-spam accountability.*
 
-NimStreak includes a dedicated **In-App Notification Center** accessible via the Bell icon in the top navigation:
+NimStreak delivers real phone/device notifications to keep you on track, powered by a backend scheduler and W3C Web Push:
+- **True Background Device Notifications:** On supported mobile and desktop browsers (Android Chrome/Firefox, iOS 16.4+ Home Screen PWA, desktop browsers), notifications arrive on your device lock screen even when NimStreak is completely closed.
+- **Seamless Nimiq Pay In-App Fallback:** Inside Nimiq Pay's mobile WebView (where OS push bridges are restricted), NimStreak automatically falls back to the in-app **Notification Center** (bell icon in top navigation) with immediate real-time delivery.
 - **6 Accountability Notification Types:**
-  1. 🔥 **Daily Check-in:** *"Your [challenge] streak is waiting. You haven't checked in today."*
-  2. ⚠️ **Streak at Risk:** *"Don't break your streak! You still need to check in today for [challenge]."*
-  3. 🚀 **Challenge Starting:** *"Your challenge [challenge] starts today. Time to make it count!"*
-  4. 🎉 **Challenge Completed:** *"Challenge complete! Your stake has been returned and your reward is being processed."*
-  5. 💰 **Reward Confirmed:** *"Your NimStreak reward of [NIM] has arrived. View your transaction."*
-  6. 👀 **Challenge Invitation:** *"You've been invited to a NimStreak challenge. Think you can finish it?"*
-- **Clickable Actions:** Tapping notifications takes you directly to the relevant Challenge Detail check-in view, Challenge Results, or Transaction History.
-- **Notification Preferences:** Toggles for Daily Check-in Reminders, Challenge Lifecycle Updates, Reward Alerts, and Invitations, plus a preferred daily reminder time selector (Morning, Midday, Afternoon, Evening, Night).
-- **Anti-Spam & Deduplication Rules:**
+  1. 🔥 **Daily Check-in:** *"🔥 Time to check in: [Challenge Title]. You haven't checked in today. Keep your streak alive!"* Sent at the user's configured reminder time.
+  2. ⚠️ **Streak at Risk:** *"⚠️ Streak at Risk: [Challenge Title]. You haven't checked in today! Only a few hours remain to protect your stake."* Dispatched late in the evening if still uncompleted.
+  3. 🚀 **Challenge Starting:** *"🚀 Challenge Started: [Challenge Title] is now live! Day 1 is waiting for you."* Sent to participants on the start date.
+  4. 🎉 **Challenge Completed:** *"🎉 Challenge Completed: [Challenge Title]! Congratulations! You conquered all days. Your stake has been reclaimed."*
+  5. 💰 **Reward Confirmed:** *"💰 Reward Confirmed on Nimiq! [X] NIM reward has been confirmed on-chain. Tap to view transaction."* Strictly triggered **only after** on-chain payout confirmation.
+  6. 👀 **Challenge Invitation:** *"👀 You've been invited to a NimStreak challenge. Think you can finish it?"*
+- **Actionable Deep Links:** Tapping a notification opens NimStreak directly at the relevant screen:
+  - Daily Check-in & Streak at Risk → Relevant Challenge Detail (`/?challenge=<id>`)
+  - Challenge Starting → Relevant Challenge Detail (`/?challenge=<id>`)
+  - Challenge Completed → Challenge Results (`/?challenge=<id>&view=results`)
+  - Reward Confirmed → Profile Transaction History (`/?screen=profile&tab=transactions`)
+  - Invitation → Challenge Preview (`/?challenge=<id>&invite=<code>`)
+- **Backend Scheduler Source of Truth:**
+  - A persistent server-side scheduler (`server/src/notification-scheduler.js`) runs periodically and in daily cron routines.
+  - Does NOT rely on frontend timers or keep-alive loops that stop when the tab or app is closed.
+- **Notification Preferences & Permission Flow:**
+  - Dedicated notification settings modal with custom alert times (Morning, Midday, Afternoon, Evening, Night).
+  - Category toggles for Daily Reminders, Challenge Lifecycle, Rewards, and Invitations.
+  - Transparent device push status badge: *Active*, *Blocked in Browser*, *Available*, or *In-App Mode (Nimiq Pay)*.
+  - Graceful permission handling: never repeatedly nags users who declined browser notification prompts.
+- **Strict Anti-Spam & Deduplication Rules:**
   - Maximum 1 daily reminder per active challenge per day.
-  - **Zero reminders if already checked in today.**
+  - **Zero reminders if the participant has already checked in today.**
   - Exactly 1 completion notification per challenge.
-  - Exactly 1 reward confirmation notification per payout hash.
+  - Exactly 1 reward confirmation notification per confirmed transaction hash.
   - Zero duplicate alerts triggered simply by reopening the application.
 
 ## 💰 Reward Model & Quitter Pool
@@ -367,7 +381,7 @@ NimStreak decouples **Profile Identity** from **On-chain Funding Wallets**:
 
 ## ⚠️ Known Limitations & Transparency
 
-- **In-App Notification Engine:** Notifications are currently delivered inside the application via the In-App Notification Center. Background Web Push notifications are not supported because Nimiq Pay mobile WebViews do not currently expose native push tokens or background service worker push endpoints. The architecture is decoupled to easily support native push once supported by the Nimiq Pay environment.
+- **Nimiq Pay WebView Push Limitation:** While NimStreak fully supports real background device push notifications (Web Push + Service Worker) in normal mobile browsers (Android Chrome/Firefox and iOS 16.4+ PWA), embedded WebViews inside the Nimiq Pay mobile app do not expose native push notification bridges or background service worker push reception. For users running strictly inside Nimiq Pay, NimStreak gracefully falls back to the in-app Notification Center, ensuring 100% feature coverage without missed accountability.
 - **Treasury Custody Model:** Stakes are held in the secure NimStreak treasury rather than a smart contract. The competition version prioritizes rapid settlement and seamless user experience over decentralized escrow.
 - **Self-Reported Check-ins:** Proof is currently based on honor-system check-ins and notes. Automatic biometric/GPS verification is slated for future milestones.
 - **Single-Node Mutex:** The in-memory payout queue secures a single backend instance. Multi-region horizontal scaling will adopt Redis-backed distributed locks.
@@ -406,7 +420,7 @@ nimstreak/
 │   │   ├── nimstreak-payout.js  # Payout engine, mutex & bonus math
 │   │   ├── constants/           # Network endpoints
 │   │   └── redis.js             # Socket.IO Redis adapter
-│   ├── tests/                   # Test suite (66 tests, 8 suites)
+│   ├── tests/                   # Test suite (78 tests, 9 suites)
 │   └── package.json
 ├── .gitignore
 ├── LICENSE                      # MIT
@@ -451,6 +465,9 @@ NIMIQ_TREASURY_ADDRESS=NQ68LS475LF6C7CUMVB6KL55YSFGPEXJADJ0
 NIMIQ_TREASURY_PRIVATE_KEY=your_private_key_here
 FIREBASE_SERVICE_ACCOUNT=your_service_account_json_here
 ADMIN_TOKEN=your_admin_secret
+VAPID_PUBLIC_KEY=your_vapid_public_key
+VAPID_PRIVATE_KEY=your_vapid_private_key
+VAPID_SUBJECT=mailto:team@nimstreak.app
 ```
 
 ### 3. Run Development Servers

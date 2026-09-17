@@ -17,6 +17,9 @@ export const memoryStore = {
   payouts: new Map(),      // key: `${challengeId}_${walletAddress}_${payoutType}`
   badges: new Map(),       // key: `${walletAddress}_${badgeType}_${challengeId}`
   usedTxHashes: new Set(),
+  pushSubscriptions: new Map(), // key: endpoint
+  notificationPreferences: new Map(), // key: normWallet
+  pushSentLog: new Map(), // key: dedupKey
 };
 
 
@@ -1553,6 +1556,178 @@ export const pool = {
   on: () => {},
 };
 
+
+// ── Push Notification & Preference Storage ─────────────────────────────────
+
+export async function savePushSubscription({ walletAddress, endpoint, keys, userAgent = "" }) {
+  const norm = normalizeAddress(walletAddress);
+  const subId = crypto.createHash("sha256").update(String(endpoint)).digest("hex");
+  const subDoc = {
+    id: subId,
+    wallet_address: norm,
+    endpoint,
+    keys: keys || {},
+    user_agent: userAgent,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      await dbInstance.collection("push_subscriptions").doc(subId).set(subDoc, { merge: true });
+      return subDoc;
+    } catch (err) {
+      console.warn("[firestore:savePushSubscription] error:", err.message);
+    }
+  }
+
+  memoryStore.pushSubscriptions.set(endpoint, subDoc);
+  return subDoc;
+}
+
+export async function getPushSubscriptions(walletAddress) {
+  const lookupAddrs = getAssociatedAddresses(walletAddress);
+  const lookupSet = new Set(lookupAddrs);
+  const subs = [];
+
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      for (const addr of lookupAddrs) {
+        const snap = await dbInstance
+          .collection("push_subscriptions")
+          .where("wallet_address", "==", addr)
+          .get();
+        for (const doc of snap.docs) {
+          subs.push(doc.data());
+        }
+      }
+      return subs;
+    } catch (err) {
+      console.warn("[firestore:getPushSubscriptions] error:", err.message);
+    }
+  }
+
+  for (const sub of memoryStore.pushSubscriptions.values()) {
+    if (lookupSet.has(normalizeAddress(sub.wallet_address))) {
+      subs.push(sub);
+    }
+  }
+  return subs;
+}
+
+export async function removePushSubscription(endpoint) {
+  const subId = crypto.createHash("sha256").update(String(endpoint)).digest("hex");
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      await dbInstance.collection("push_subscriptions").doc(subId).delete();
+    } catch (err) {
+      console.warn("[firestore:removePushSubscription] error:", err.message);
+    }
+  }
+  memoryStore.pushSubscriptions.delete(endpoint);
+  return true;
+}
+
+export async function getAllPushSubscriptions() {
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      const snap = await dbInstance.collection("push_subscriptions").get();
+      return snap.docs.map(d => d.data());
+    } catch (err) {
+      console.warn("[firestore:getAllPushSubscriptions] error:", err.message);
+    }
+  }
+  return Array.from(memoryStore.pushSubscriptions.values());
+}
+
+export const DEFAULT_SERVER_PREFERENCES = {
+  dailyReminders: true,
+  challengeUpdates: true,
+  rewardUpdates: true,
+  invitations: true,
+  preferredReminderTime: "20:00",
+};
+
+export async function getNotificationPreferences(walletAddress) {
+  const norm = normalizeAddress(walletAddress);
+  if (!norm) return { ...DEFAULT_SERVER_PREFERENCES };
+
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      const doc = await dbInstance.collection("notification_preferences").doc(norm).get();
+      if (doc.exists) {
+        return { ...DEFAULT_SERVER_PREFERENCES, ...doc.data() };
+      }
+    } catch (err) {
+      console.warn("[firestore:getNotificationPreferences] error:", err.message);
+    }
+  }
+
+  const stored = memoryStore.notificationPreferences.get(norm);
+  if (stored) return { ...DEFAULT_SERVER_PREFERENCES, ...stored };
+  return { ...DEFAULT_SERVER_PREFERENCES };
+}
+
+export async function saveNotificationPreferences(walletAddress, prefs) {
+  const norm = normalizeAddress(walletAddress);
+  if (!norm) return { ...DEFAULT_SERVER_PREFERENCES };
+
+  const merged = { ...DEFAULT_SERVER_PREFERENCES, ...prefs, wallet_address: norm, updated_at: new Date().toISOString() };
+
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      await dbInstance.collection("notification_preferences").doc(norm).set(merged, { merge: true });
+      return merged;
+    } catch (err) {
+      console.warn("[firestore:saveNotificationPreferences] error:", err.message);
+    }
+  }
+
+  memoryStore.notificationPreferences.set(norm, merged);
+  return merged;
+}
+
+export async function isNotificationSent(dedupKey) {
+  const keyHash = crypto.createHash("sha256").update(String(dedupKey)).digest("hex");
+
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      const doc = await dbInstance.collection("push_sent_log").doc(keyHash).get();
+      return doc.exists;
+    } catch (err) {
+      console.warn("[firestore:isNotificationSent] error:", err.message);
+    }
+  }
+
+  return memoryStore.pushSentLog.has(dedupKey);
+}
+
+export async function recordSentNotification({ dedupKey, walletAddress, type, title, body, challengeId = null, txHash = null, timestamp = new Date().toISOString() }) {
+  const keyHash = crypto.createHash("sha256").update(String(dedupKey)).digest("hex");
+  const record = {
+    dedup_key: dedupKey,
+    wallet_address: normalizeAddress(walletAddress),
+    type,
+    title,
+    body,
+    challenge_id: challengeId,
+    tx_hash: txHash,
+    sent_at: timestamp,
+  };
+
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      await dbInstance.collection("push_sent_log").doc(keyHash).set(record);
+      return record;
+    } catch (err) {
+      console.warn("[firestore:recordSentNotification] error:", err.message);
+    }
+  }
+
+  memoryStore.pushSentLog.set(dedupKey, record);
+  return record;
+}
+
 export const query = async () => ({ rows: [] });
 
 export const withTransaction = async (cb) => cb({});
@@ -1591,4 +1766,12 @@ export default {
   isChallengeExpired,
   isChallengeActive,
   normalizeAddress,
+  savePushSubscription,
+  getPushSubscriptions,
+  removePushSubscription,
+  getAllPushSubscriptions,
+  getNotificationPreferences,
+  saveNotificationPreferences,
+  isNotificationSent,
+  recordSentNotification,
 };

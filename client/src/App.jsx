@@ -16,6 +16,7 @@ import { shortenWalletAddress } from "./utils/ui-helpers.js";
 import { Smartphone, X, Copy, Bell } from "lucide-react";
 import { NotificationCenter } from "./components/ui/notification-center.jsx";
 import { NotificationPreferencesModal } from "./components/ui/notification-preferences-modal.jsx";
+import { registerServiceWorker, isPushSupported } from "./utils/device-notifications.js";
 import {
   evaluateNotifications,
   markNotificationAsRead,
@@ -41,15 +42,26 @@ export default function App() {
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [notifications, setNotifications] = useState(() => getStoredNotifications());
 
+  // Register background service worker for push notifications on supported browsers
+  useEffect(() => {
+    if (isPushSupported()) {
+      registerServiceWorker().catch(() => {});
+    }
+  }, []);
+
   // Parse share/invite deep link query parameters on initial mount
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      const cId = params.get("challenge");
+      const cId = params.get("challenge") || params.get("challengeId");
       const inv = params.get("invite") || params.get("code");
+      const targetScreen = params.get("screen");
       if (cId) {
         setPendingChallengeId(cId);
         setSelectedChallengeId(cId);
+        setScreen("challenge-detail");
+      } else if (targetScreen) {
+        setScreen(targetScreen);
       }
       if (inv) {
         setInitialInviteCode(inv.toUpperCase());
@@ -741,6 +753,7 @@ export default function App() {
       <NotificationPreferencesModal
         isOpen={notifPrefsOpen}
         onClose={() => setNotifPrefsOpen(false)}
+        walletAddress={walletAddress}
       />
 
       {/* Desktop Nimiq Pay Staking Environment Guidance Modal */}

@@ -5,6 +5,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import * as db from "./db.js";
+import { getVapidPublicKey, runNotificationScheduler } from "./notification-scheduler.js";
 import { initDb, normalizeAddress } from "./db.js";
 import {
   sendStreakPayout,
@@ -830,6 +831,89 @@ app.get("/api/badges/:walletAddress", async (req, res) => {
   }
 });
 
+
+// ── Web Push & Device Notification Routes ────────────────────────
+
+// Get VAPID public key for browser push subscription
+app.get("/api/notifications/vapid-public-key", (_req, res) => {
+  return res.json({ publicKey: getVapidPublicKey() });
+});
+
+// Register Web Push subscription
+app.post("/api/notifications/subscribe", async (req, res) => {
+  const { walletAddress, subscription, userAgent } = req.body || {};
+  if (!walletAddress || !subscription?.endpoint) {
+    return res.status(400).json({ error: "walletAddress and subscription.endpoint are required" });
+  }
+
+  try {
+    const saved = await db.savePushSubscription({
+      walletAddress,
+      endpoint: subscription.endpoint,
+      keys: subscription.keys || {},
+      userAgent: userAgent || req.headers["user-agent"] || "",
+    });
+    return res.json({ success: true, subscription: saved });
+  } catch (err) {
+    console.error("[api:notifications:subscribe] error:", err.message);
+    return res.status(500).json({ error: "Failed to save push subscription" });
+  }
+});
+
+// Unsubscribe Web Push subscription
+app.post("/api/notifications/unsubscribe", async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) {
+    return res.status(400).json({ error: "endpoint is required" });
+  }
+
+  try {
+    await db.removePushSubscription(endpoint);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("[api:notifications:unsubscribe] error:", err.message);
+    return res.status(500).json({ error: "Failed to remove push subscription" });
+  }
+});
+
+// Get user notification preferences
+app.get("/api/notifications/preferences/:walletAddress", async (req, res) => {
+  const walletAddress = normalizeAddress(req.params.walletAddress);
+  try {
+    const prefs = await db.getNotificationPreferences(walletAddress);
+    return res.json(prefs);
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to fetch notification preferences" });
+  }
+});
+
+// Update user notification preferences
+app.post("/api/notifications/preferences", async (req, res) => {
+  const { walletAddress, preferences } = req.body || {};
+  if (!walletAddress) {
+    return res.status(400).json({ error: "walletAddress is required" });
+  }
+
+  try {
+    const saved = await db.saveNotificationPreferences(walletAddress, preferences || {});
+    return res.json({ success: true, preferences: saved });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to save notification preferences" });
+  }
+});
+
+// Trigger Notification Scheduler (manual or test dispatch)
+app.post("/api/notifications/trigger-scheduler", async (req, res) => {
+  try {
+    const now = req.body?.timestamp ? new Date(req.body.timestamp) : new Date();
+    const result = await runNotificationScheduler({ now });
+    return res.json({ success: true, result });
+  } catch (err) {
+    console.error("[api:notifications:trigger-scheduler] error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Daily Cron Routine ───────────────────────────────────────────
 // Checks missed check-ins and completes ended challenges
 export async function runDailyCronEvaluation() {
@@ -857,6 +941,10 @@ export async function runDailyCronEvaluation() {
         quitterPool: payoutResult.quitterPoolNim,
       });
     }
+
+    // 3. Dispatch background device notification scheduler
+    console.log("[cron] Evaluating scheduled device notifications...");
+    await runNotificationScheduler();
   } catch (err) {
     console.error("[cron:error]", err.message);
   }
@@ -864,6 +952,10 @@ export async function runDailyCronEvaluation() {
 
 // Run cron every 6 hours and on startup after 5 seconds
 setInterval(runDailyCronEvaluation, 6 * 3600 * 1000);
+// Run device notification scheduler every 15 minutes
+setInterval(() => {
+  runNotificationScheduler().catch((err) => console.warn("[notification-scheduler:interval:error]", err.message));
+}, 15 * 60 * 1000);
 setTimeout(runDailyCronEvaluation, 5000);
 
 // ── Start Server ─────────────────────────────────────────────────
