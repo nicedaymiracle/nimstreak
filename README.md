@@ -122,8 +122,8 @@ Every NimStreak challenge progresses through a deterministic, strictly verified 
 ## ⚔️ Challenge Creation & Modes
 
 NimStreak supports flexible habit commitment setups:
-- **Solo Challenges:** Single-player discipline mode. Perfect for personal goals where you want skin in the game. If you complete all days, your full stake is returned with an eligible NimStreak completion bonus.
-- **Challenges with Friends & Groups:** Multiplayer community pots where participants share a communal reward pool. Participants who miss check-ins forfeit their stakes to the finishers.
+- **Solo Challenges:** Single-player discipline mode. In solo mode, your principal stake is **100% protected**. Complete 100% of required days to earn your stake back plus an eligible NimStreak completion bonus. If you miss a day, your principal stake is safely returned with no bonus (no Quitter Pool is created).
+- **Public & Group Challenges:** Multiplayer community challenges using the communal reward model. Successful finishers reclaim their stake, receive their equal share of the 100% Quitter Pool (forfeited stakes from quitters), and earn an eligible NimStreak completion bonus.
 - **Custom Parameters:**
   - **Category:** Fitness (💪), Learning (📚), Coding (💻), Health (🥗), Mindfulness (🧘), Finance (💰), Custom (🎯).
   - **Duration:** 7 Days, 14 Days, 21 Days, or 30 Days.
@@ -293,28 +293,41 @@ NimStreak delivers real phone/device notifications to keep you on track, powered
 
 ---
 
-## 💰 Reward Model & Quitter Pool
+## 💰 Reward Model & Challenge Rules
 
-NimStreak implements a mathematically balanced, non-inflationary reward economy:
+NimStreak implements distinct reward mechanics tailored for solo and communal challenges:
+
+### 1. Solo Challenges (`type: "solo"`)
+Solo challenges are designed for self-accountability with **100% principal stake protection**:
+- **Complete 100% of Required Days:** Reclaim **100% of your original stake** + earn the eligible **NimStreak completion bonus** (up to 50% of stake, capped at 5 NIM).
+- **Miss a Daily Check-in:** Reclaim **100% of your original stake** + **NO completion bonus**.
+- **No Quitter Pool:** Solo challenges never create or distribute a Quitter Pool; you compete strictly against yourself and your principal is never put at risk.
 
 ```
-  Total Finisher Payout = Original Stake Return + Share of Quitter Pool + NimStreak Bonus
+  Solo Finisher (100% complete) = Original Stake Return + NimStreak Completion Bonus
+  Solo Missed Check-in         = Original Stake Return (0 NIM Bonus, Principal Protected)
 ```
 
-### 1. 100% Forfeited Pool Distribution
-When participants miss a daily check-in, their full stake is forfeited and placed into the challenge Quitter Pool. Upon challenge completion, **100% of this pool is distributed equally** among all surviving finishers.
+### 2. Public & Group Challenges (`type: "public"` / `type: "group"`)
+Public and group challenges use the **communal reward model**:
+- **Complete 100% of Required Days:** Reclaim **100% of your original stake** + **equal share of the Quitter Pool** + eligible **NimStreak completion bonus**.
+- **Miss a Daily Check-in:** **100% of stake is forfeited** into the Quitter Pool for finishers + **NO bonus**.
+- **100% Quitter Pool to Finishers:** 0% treasury fee is deducted—100% of forfeited stakes are shared equally among finishers.
 
-### 2. Individual Bonus Cap
-To preserve healthy habit-forming incentives while preventing runaway treasury depletion, an optional platform bonus is awarded up to **50% of original stake**, capped at a maximum of **5 NIM per individual finisher**.
+```
+  Communal Finisher Payout = Original Stake Return + Equal Share of Quitter Pool + NimStreak Bonus
+```
 
-### 3. Challenge Bonus Cap
-To protect treasury solvency, the total bonus payout across **all finishers in a single challenge can never exceed 20 NIM**. If 100 players finish a 10 NIM challenge, the bonus scales proportionally so total liability is strictly bounded:
+### 3. Individual & Challenge Bonus Caps
+To preserve healthy habit-forming incentives while preventing treasury depletion:
+- **Individual Cap:** Up to **50% of original stake**, capped at a maximum of **5 NIM per individual finisher**.
+- **Challenge Budget Cap:** Total NimStreak bonus across all finishers in a single challenge can never exceed **20 NIM**. If many players finish, the bonus scales proportionally:
 
 ```
   Bonus Per Finisher = min(5 NIM, (20 NIM / Number of Finishers), 50% of Stake)
 ```
 
-### 📊 Example Scenario (4 Players, 10 NIM Stake Each)
+### 📊 Example Scenario: Public Challenge (4 Players, 10 NIM Stake Each)
 
 | Player | Stake | Status | Stake Return | Quitter Share | Bonus | Total Payout |
 |---|---|---|---|---|---|---|

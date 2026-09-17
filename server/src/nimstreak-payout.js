@@ -40,12 +40,19 @@ export function lunaToNim(luna) {
 /**
  * Pure integer Luna calculation for challenge forfeiture and finisher payouts.
  * Uses deterministic integer arithmetic with explicit remainder handling.
+ *
+ * Challenge type determines the reward model:
+ * - "solo": Protected stake on failure (stake returned, no bonus, no quitter pool)
+ * - "public" / "group": Communal forfeiture (failed stakes enter quitter pool for finishers)
+ * - If challengeType is not provided, defaults to communal forfeiture (defensive fallback).
  */
 export const MAX_INDIVIDUAL_BONUS_LUNA = 500000n; // 5 NIM individual cap
 export const MAX_NIMSTREAK_BONUS_LUNA = 500000n; // Backwards compatible alias
 export const CHALLENGE_MAX_BONUS_LUNA = 2000000n; // 20 NIM challenge budget cap
 
-export function calculatePayouts(participants = [], totalPoolInput = null, maxChallengeBonusInput = null) {
+export function calculatePayouts(participants = [], totalPoolInput = null, maxChallengeBonusInput = null, challengeType = null) {
+  const isSolo = challengeType === "solo";
+
   const quitters = participants.filter((p) => p.status === "failed");
   const finishers = participants.filter((p) => p.status === "completed" || p.status === "active");
 
@@ -56,12 +63,16 @@ export function calculatePayouts(participants = [], totalPoolInput = null, maxCh
         0n
       );
 
-  const quitterPoolLuna = quitters.reduce(
-    (sum, p) => sum + (p.stake_luna ? BigInt(p.stake_luna) : nimToLuna(p.stake_amount || p.stake_nim || 0)),
-    0n
-  );
+  // Solo challenges: no quitter pool (stakes are protected)
+  // Public/Group challenges: failed stakes form the quitter pool
+  const quitterPoolLuna = isSolo
+    ? 0n
+    : quitters.reduce(
+        (sum, p) => sum + (p.stake_luna ? BigInt(p.stake_luna) : nimToLuna(p.stake_amount || p.stake_nim || 0)),
+        0n
+      );
 
-  // Treasury fee is 0% in the new NimStreak reward model (100% of forfeited pool goes to finishers)
+  // Treasury fee is 0% in the NimStreak reward model (100% of forfeited pool goes to finishers)
   const treasuryFeeLuna = 0n;
   const distributableBonusLuna = quitterPoolLuna;
 
@@ -100,6 +111,7 @@ export function calculatePayouts(participants = [], totalPoolInput = null, maxCh
   let totalNimStreakBonusLuna = 0n;
   let distributedForfeitedLuna = 0n;
 
+  // Build finisher payouts
   const payouts = finishers.map((p, idx) => {
     const stakeLuna = p.stake_luna ? BigInt(p.stake_luna) : nimToLuna(p.stake_amount || p.stake_nim || 0);
 
@@ -131,8 +143,32 @@ export function calculatePayouts(participants = [], totalPoolInput = null, maxCh
     };
   });
 
+  // Solo challenges: failed participants receive their protected stake back (no bonus, no pool share)
+  if (isSolo) {
+    for (const p of quitters) {
+      const stakeLuna = p.stake_luna ? BigInt(p.stake_luna) : nimToLuna(p.stake_amount || p.stake_nim || 0);
+      payouts.push({
+        wallet_address: p.wallet_address,
+        stake_return_luna: stakeLuna.toString(),
+        stake_return_nim: lunaToNim(stakeLuna),
+        forfeited_reward_luna: "0",
+        forfeited_reward_nim: 0,
+        bonus_luna: "0",
+        bonus_nim: 0,
+        nimstreak_bonus_luna: "0",
+        nimstreak_bonus_nim: 0,
+        theoretical_bonus_luna: "0",
+        theoretical_bonus_nim: 0,
+        total_luna: stakeLuna.toString(),
+        total_nim: lunaToNim(stakeLuna),
+        payout_type: "solo_stake_return",
+      });
+    }
+  }
+
   return {
     payouts,
+    challengeType: challengeType || null,
     totalPoolLuna: totalPoolLuna.toString(),
     totalPoolNim: lunaToNim(totalPoolLuna),
     quitterPoolLuna: quitterPoolLuna.toString(),

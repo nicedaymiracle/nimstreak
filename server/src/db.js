@@ -1011,17 +1011,23 @@ export async function getChallengeCheckins(challengeId) {
 }
 
 // ── Payouts ──────────────────────────────────────────────────────────────────
-export async function getPayout(challengeId, walletAddress, payoutType = "stake_return_plus_bonus") {
+export async function getPayout(challengeId, walletAddress, payoutType = null) {
   const norm = normalizeAddress(walletAddress);
   const lookupAddrs = getAssociatedAddresses(walletAddress);
+
+  const typesToCheck = payoutType
+    ? [payoutType, payoutType === "solo_stake_return" ? "stake_return_plus_bonus" : "solo_stake_return"]
+    : ["stake_return_plus_bonus", "solo_stake_return"];
 
   if (isFirestoreConnected && dbInstance) {
     try {
       for (const addr of lookupAddrs) {
-        const payoutDocId = `${challengeId}_${addr}_${payoutType}`;
-        const doc = await dbInstance.collection("nimstreak_payouts").doc(payoutDocId).get();
-        if (doc.exists) {
-          return doc.data();
+        for (const type of typesToCheck) {
+          const payoutDocId = `${challengeId}_${addr}_${type}`;
+          const doc = await dbInstance.collection("nimstreak_payouts").doc(payoutDocId).get();
+          if (doc.exists) {
+            return doc.data();
+          }
         }
       }
       return null;
@@ -1031,9 +1037,11 @@ export async function getPayout(challengeId, walletAddress, payoutType = "stake_
   }
 
   for (const addr of lookupAddrs) {
-    const payoutDocId = `${challengeId}_${addr}_${payoutType}`;
-    const mem = memoryStore.payouts.get(payoutDocId);
-    if (mem) return mem;
+    for (const type of typesToCheck) {
+      const payoutDocId = `${challengeId}_${addr}_${type}`;
+      const mem = memoryStore.payouts.get(payoutDocId);
+      if (mem) return mem;
+    }
   }
   return null;
 }
@@ -1080,20 +1088,23 @@ export async function recordPayout(payoutData) {
 
       batch.set(payoutRef, fullPayout, { merge: true });
       if (fullPayout.status === "sent") {
-        batch.set(
-          profRef,
-          {
-            completed_challenges: FieldValue.increment(1),
-            total_nim_earned: FieldValue.increment(Number(fullPayout.bonus_nim || fullPayout.amount_nim) || 0),
-            updated_at: new Date().toISOString(),
-          },
-          { merge: true }
-        );
+        const isSoloMissed = fullPayout.payout_type === "solo_stake_return";
+        if (!isSoloMissed) {
+          batch.set(
+            profRef,
+            {
+              completed_challenges: FieldValue.increment(1),
+              total_nim_earned: FieldValue.increment(Number(fullPayout.bonus_nim) || 0),
+              updated_at: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        }
       }
 
       await batch.commit();
 
-      if (fullPayout.status === "sent") {
+      if (fullPayout.status === "sent" && fullPayout.payout_type !== "solo_stake_return") {
         await awardBadge(norm, "challenge_winner", payoutData.challenge_id);
         await awardBadge(norm, "first_win", payoutData.challenge_id);
       }
@@ -1106,13 +1117,16 @@ export async function recordPayout(payoutData) {
 
   memoryStore.payouts.set(payoutDocId, fullPayout);
   if (fullPayout.status === "sent") {
-    const prof = await getProfile(norm);
-    await updateProfile(norm, {
-      completed_challenges: (prof.completed_challenges || 0) + 1,
-      total_nim_earned: (prof.total_nim_earned || 0) + (Number(fullPayout.bonus_nim || fullPayout.amount_nim) || 0),
-    });
-    await awardBadge(norm, "challenge_winner", payoutData.challenge_id);
-    await awardBadge(norm, "first_win", payoutData.challenge_id);
+    const isSoloMissed = fullPayout.payout_type === "solo_stake_return";
+    if (!isSoloMissed) {
+      const prof = await getProfile(norm);
+      await updateProfile(norm, {
+        completed_challenges: (prof.completed_challenges || 0) + 1,
+        total_nim_earned: (prof.total_nim_earned || 0) + (Number(fullPayout.bonus_nim) || 0),
+      });
+      await awardBadge(norm, "challenge_winner", payoutData.challenge_id);
+      await awardBadge(norm, "first_win", payoutData.challenge_id);
+    }
   }
 
   return fullPayout;
@@ -1504,6 +1518,7 @@ export async function evaluateDailyMissedCheckins() {
       quitters.push({
         ...p,
         title: chal.title,
+        challenge_type: chal.type,
       });
     }
   }

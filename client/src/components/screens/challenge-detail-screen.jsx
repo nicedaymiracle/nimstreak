@@ -306,23 +306,29 @@ Join here: ${shareUrl}`;
     return (cleanWalletUpper && pAddr === cleanWalletUpper) || (partAddr && pAddr === partAddr);
   });
 
+  const isSolo = challenge?.type === "solo";
   const userStakeNim = calculatedEntry?.stake_return_nim !== undefined
     ? parseFloat(calculatedEntry.stake_return_nim)
     : parseFloat(participant?.stake_amount || challenge.stake_nim || 0);
 
-  const forfeitedRewardNim = calculatedEntry?.forfeited_reward_nim !== undefined
+  const forfeitedRewardNim = isSolo ? 0 : (calculatedEntry?.forfeited_reward_nim !== undefined
     ? parseFloat(calculatedEntry.forfeited_reward_nim)
     : stats?.estimatedForfeitedRewardPerFinisher !== undefined
     ? parseFloat(stats.estimatedForfeitedRewardPerFinisher)
-    : 0;
+    : 0);
 
   const nimStreakBonusNim = calculatedEntry?.nimstreak_bonus_nim !== undefined
     ? parseFloat(calculatedEntry.nimstreak_bonus_nim)
-    : Math.min(userStakeNim * 0.5, 5);
+    : (isFailed ? 0 : Math.min(userStakeNim * 0.5, 5));
 
   const estimatedTotalPayout = calculatedEntry?.total_nim !== undefined
     ? parseFloat(calculatedEntry.total_nim).toFixed(2)
-    : (userStakeNim + forfeitedRewardNim + nimStreakBonusNim).toFixed(2);
+    : (isSolo && isFailed
+      ? userStakeNim.toFixed(2)
+      : (userStakeNim + forfeitedRewardNim + nimStreakBonusNim).toFixed(2));
+
+  const isSoloMissedFinisher = isParticipant && isFailed && isSolo && isChallengeEnded;
+  const canClaim = isParticipant && (isCompleted || isSoloMissedFinisher);
 
   return (
     <div className="screen-container challenge-detail-screen" ref={cardRef}>
@@ -354,7 +360,11 @@ Join here: ${shareUrl}`;
               ) : isCompleted ? (
                 <span className="status-pill status-pill--won"><Trophy size={13} className="inline-icon" /> Finished & Won</span>
               ) : isFailed ? (
-                <span className="status-pill status-pill--forfeited"><XCircle size={13} className="inline-icon" /> Stake Forfeited</span>
+                challenge?.type === "solo" ? (
+                  <span className="status-pill status-pill--missed"><ShieldCheck size={13} className="inline-icon" /> Missed — Stake Protected</span>
+                ) : (
+                  <span className="status-pill status-pill--forfeited"><XCircle size={13} className="inline-icon" /> Stake Forfeited</span>
+                )
               ) : isCheckedInToday ? (
                 <span className="status-pill status-pill--secured"><CheckCircle2 size={13} className="inline-icon" /> Checked in today</span>
               ) : (
@@ -427,9 +437,9 @@ Join here: ${shareUrl}`;
 
           <div className="d-box">
             <span className="d-box__val" ref={bonusRef}>
-              <Coins size={16} className="text-gold inline-icon" /> {stats?.totalPool || 0} NIM
+              <Coins size={16} className="text-gold inline-icon" /> {isSolo ? (isFailed ? "0" : (stats?.estimatedBonusPerFinisher || "0")) : (stats?.totalPool || 0)} NIM
             </span>
-            <span className="d-box__lbl">Forfeited Pool</span>
+            <span className="d-box__lbl">{isSolo ? "Bonus Reward" : "Forfeited Pool"}</span>
           </div>
         </div>
 
@@ -453,12 +463,20 @@ Join here: ${shareUrl}`;
         <section className="claim-reward-card challenge-results-section">
           <div className="claim-reward-card__icon"><Trophy size={32} className="text-gold" /></div>
           <h3 className="claim-reward-card__title">
-            {isCompleted ? "Challenge Complete! Streak Won!" : "Challenge Results"}
+            {isCompleted
+              ? "Challenge Complete! Streak Won!"
+              : (isSoloMissedFinisher
+                ? "Challenge Ended — Stake Protected"
+                : "Challenge Results")}
           </h3>
           <p className="claim-reward-card__desc">
             {isCompleted
-              ? `You stayed consistent through all ${duration} days. Reclaim your stake plus your share of forfeited stakes and streak bonuses!`
-              : `This ${duration}-day challenge has ended. Review the final participant results below.`}
+              ? (isSolo
+                ? `You stayed consistent through all ${duration} days! Reclaim your original stake plus your NimStreak completion bonus.`
+                : `You stayed consistent through all ${duration} days. Reclaim your stake plus your share of the Quitter Pool and streak bonuses!`)
+              : (isSoloMissedFinisher
+                ? `This solo challenge has ended. You missed a required check-in, but your ${userStakeNim.toFixed(2)} NIM principal stake is 100% protected and ready to reclaim.`
+                : `This ${duration}-day challenge has ended. Review the final participant results below.`)}
           </p>
 
           {/* Comprehensive Results Breakdown */}
@@ -478,7 +496,7 @@ Join here: ${shareUrl}`;
               <strong style={{ fontSize: "1.1rem", color: "#4ade80" }}>{stats?.finishers || (challengeData.participants?.filter(p => p.status === 'completed')?.length) || 0}</strong>
             </div>
             <div className="result-metric-card" style={{ padding: "0.75rem", borderRadius: "0.75rem", background: "var(--navy-surface)", border: "1px solid var(--navy-border)" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>Forfeited</span>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block" }}>{isSolo ? "Missed" : "Forfeited"}</span>
               <strong style={{ fontSize: "1.1rem", color: "#f87171" }}>{stats?.forfeitedParticipants || (challengeData.participants?.filter(p => p.status === 'failed')?.length) || 0}</strong>
             </div>
             {isParticipant && (
@@ -489,40 +507,44 @@ Join here: ${shareUrl}`;
             )}
           </div>
 
-          {/* Reward Breakdown (Only if finisher) */}
-          {isParticipant && !isFailed && isCompleted && (
+          {/* Reward Breakdown (Finisher or Protected Solo Stake Return) */}
+          {canClaim && (
             <div className="payout-preview-card" style={{ marginTop: "1rem", marginBottom: "1.25rem", textAlign: "left" }}>
               <div className="payout-preview-card__header">
                 <span>🪙</span>
-                <span>Your Payout Breakdown</span>
+                <span>{isSoloMissedFinisher ? "Protected Stake Return" : "Your Payout Breakdown"}</span>
               </div>
               <div className="preview-row">
                 <span style={{ color: "var(--ink-muted)" }}>Original Stake Return</span>
                 <span style={{ fontWeight: 600 }}>{userStakeNim.toFixed(2)} NIM</span>
               </div>
-              <div className="preview-row">
-                <span style={{ color: "var(--ink-muted)" }}>Forfeited Pool Reward</span>
-                <span style={{ fontWeight: 600, color: "var(--gold-primary)" }}>+{forfeitedRewardNim.toFixed(2)} NIM</span>
-              </div>
+              {!isSolo && (
+                <div className="preview-row">
+                  <span style={{ color: "var(--ink-muted)" }}>Quitter Pool Reward</span>
+                  <span style={{ fontWeight: 600, color: "var(--gold-primary)" }}>+{forfeitedRewardNim.toFixed(2)} NIM</span>
+                </div>
+              )}
               <div className="preview-row">
                 <span style={{ color: "var(--ink-muted)" }}>
-                  NimStreak Bonus {stats?.isBonusScaled ? "(scaled to challenge budget)" : "(50% max 5 NIM)"}
+                  NimStreak Bonus {isSoloMissedFinisher ? "(missed check-in — no bonus)" : stats?.isBonusScaled ? "(scaled to challenge budget)" : "(50% max 5 NIM)"}
                 </span>
-                <span style={{ fontWeight: 600, color: "#22c55e" }}>+{nimStreakBonusNim.toFixed(2)} NIM</span>
+                <span style={{ fontWeight: 600, color: isSoloMissedFinisher ? "var(--text-muted)" : "#22c55e" }}>
+                  {isSoloMissedFinisher ? "0.00 NIM" : `+${nimStreakBonusNim.toFixed(2)} NIM`}
+                </span>
               </div>
               <div className="preview-divider" />
               <div className="preview-row preview-row--total">
-                <span>Total Payout</span>
+                <span>{isSoloMissedFinisher ? "Total Return" : "Total Payout"}</span>
                 <span style={{ color: "var(--gold-primary)", fontSize: "1.05rem" }}>{estimatedTotalPayout} NIM</span>
               </div>
             </div>
           )}
 
           {/* Claim and Payout Status */}
-          {isParticipant && !isFailed && isCompleted && (
+          {canClaim && (
             hasClaimed ? (
               <div className="claim-reward-claimed-banner" style={{ marginBottom: "1rem" }}>
-                <div>✅ <strong>Reward Confirmed & Paid ({payoutRecord.amount_nim} NIM)</strong></div>
+                <div>✅ <strong>{isSoloMissedFinisher ? "Stake Returned & Paid" : "Reward Confirmed & Paid"} ({payoutRecord.amount_nim} NIM)</strong></div>
                 {payoutRecord.tx_hash && (
                   <div className="claim-reward-tx-link">
                     <a
@@ -551,7 +573,7 @@ Join here: ${shareUrl}`;
               }}>
                 <RefreshCw size={18} className="animate-spin text-gold" />
                 <div>
-                  <strong>Payout Verification in Progress:</strong> Your reward transaction is confirming on the Nimiq blockchain.
+                  <strong>Payout Verification in Progress:</strong> Your {isSoloMissedFinisher ? "stake return" : "reward"} transaction is confirming on the Nimiq blockchain.
                 </div>
               </div>
             ) : (
@@ -562,7 +584,11 @@ Join here: ${shareUrl}`;
                   onClick={handleClaimPayout}
                   disabled={claiming}
                 >
-                  {claiming ? "Signing Treasury Payout..." : <><Coins size={16} className="inline-icon" /> CLAIM {estimatedTotalPayout} NIM</>}
+                  {claiming
+                    ? "Signing Treasury Payout..."
+                    : isSoloMissedFinisher
+                    ? <><ShieldCheck size={16} className="inline-icon" /> RECLAIM STAKE {userStakeNim.toFixed(2)} NIM</>
+                    : <><Coins size={16} className="inline-icon" /> CLAIM {estimatedTotalPayout} NIM</>}
                 </button>
                 {claimMessage && (
                   <p className="claim-reward-msg">{claimMessage}</p>
@@ -750,13 +776,24 @@ Join here: ${shareUrl}`;
       {/* If User Failed */}
       {isFailed && (
         <section className="forfeit-banner">
-          <span className="forfeit-banner__icon"><XCircle size={28} className="text-rose" /></span>
+          <span className="forfeit-banner__icon">{challenge?.type === "solo" ? <ShieldCheck size={28} className="text-amber" /> : <XCircle size={28} className="text-rose" />}</span>
           <div className="forfeit-banner__text">
-            <h3>Stake Forfeited</h3>
-            <p>
-              A daily check-in was missed. Your {participant?.stake_amount || challenge.stake_nim} NIM stake
-              has been transferred to the finishers prize pool. Start a new challenge to get back on track!
-            </p>
+            {challenge?.type === "solo" ? (
+              <>
+                <h3>Missed — Stake Protected</h3>
+                <p>
+                  You missed a required check-in. Your {participant?.stake_amount || challenge.stake_nim} NIM stake is protected and will be returned, but you won't receive the completion bonus.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3>Stake Forfeited</h3>
+                <p>
+                  A daily check-in was missed. Your {participant?.stake_amount || challenge.stake_nim} NIM stake
+                  has been added to the Quitter Pool and will be shared among participants who finish.
+                </p>
+              </>
+            )}
           </div>
         </section>
       )}
@@ -765,7 +802,9 @@ Join here: ${shareUrl}`;
       <section className="mechanics-info-card">
         <h3 className="mechanics-info-card__title">Stakes & Rewards Structure</h3>
         <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem", lineHeight: 1.5 }}>
-          Complete your challenge and get your original stake back. If other participants quit, their forfeited stakes form a reward pool shared equally among successful finishers.
+          {challenge?.type === "solo"
+            ? "Complete your solo challenge to get your original stake back plus a completion bonus. Miss a day? Your stake is protected, but you won't receive the completion bonus."
+            : "Complete your challenge and get your original stake back. If other participants quit, their forfeited stakes form a reward pool shared equally among successful finishers."}
         </p>
 
         <div className="mechanics-info-grid">
@@ -773,15 +812,21 @@ Join here: ${shareUrl}`;
             <span className="mechanics-info-item__icon"><ShieldCheck size={20} className="text-emerald" /></span>
             <div>
               <strong>100% Stake Protection</strong>
-              <p>Check in once every 24 hours. Complete your streak to reclaim 100% of your original stake.</p>
+              <p>
+                {challenge?.type === "solo"
+                  ? "Your original NIM stake is 100% protected and returned whether you complete your streak or miss a check-in."
+                  : "Check in once every 24 hours. Complete your streak to reclaim 100% of your original stake."}
+              </p>
             </div>
           </div>
           <div className="mechanics-info-item">
             <span className="mechanics-info-item__icon"><Trophy size={20} className="text-gold" /></span>
             <div>
-              <strong>100% Forfeited Pool Share</strong>
+              <strong>{challenge?.type === "solo" ? "Solo Completion Bonus" : "100% Quitter Pool Share"}</strong>
               <p>
-                Eligible finishers receive 100% of forfeited stakes with zero treasury fee deductions.
+                {challenge?.type === "solo"
+                  ? "Complete 100% of required daily check-ins to earn an eligible NimStreak completion bonus."
+                  : "Eligible finishers receive 100% of forfeited stakes from missed check-ins with zero treasury fee deductions."}
               </p>
             </div>
           </div>
@@ -790,7 +835,9 @@ Join here: ${shareUrl}`;
             <div>
               <strong>NimStreak Bonus</strong>
               <p>
-                NimStreak may provide a separate bonus based on existing rules (up to 50% of original stake, max 5 NIM per finisher, challenge-level max of 20 NIM), scaled proportionally when required.
+                {challenge?.type === "solo"
+                  ? "Finishers receive up to 50% of original stake as a completion bonus (max 5 NIM), provided 100% of check-ins are completed."
+                  : "NimStreak may provide a separate bonus based on existing rules (up to 50% of original stake, max 5 NIM per finisher, challenge-level max of 20 NIM), scaled proportionally when required."}
               </p>
             </div>
           </div>
@@ -801,6 +848,7 @@ Join here: ${shareUrl}`;
           isCollapsible={true}
           defaultExpanded={false}
           showBonusNote={false}
+          challengeType={challenge?.type}
         />
       </section>
 
@@ -860,7 +908,7 @@ Join here: ${shareUrl}`;
           </div>
           <span className="pool-tally" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
             <Trophy size={13} style={{ color: "var(--color-gold)" }} />
-            <span>Pool: <strong>{stats?.totalPool || 0} NIM</strong></span>
+            <span>{isSolo ? "Solo Mode" : <>Pool: <strong>{stats?.totalPool || 0} NIM</strong></>}</span>
           </span>
         </div>
 
@@ -888,7 +936,13 @@ Join here: ${shareUrl}`;
                       {isCurrentUser && <span className="me-pill">You</span>}
                     </span>
                     <span className="leaderboard-row__status">
-                      {item.status === "failed" ? <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><XCircle size={12} className="text-rose" /> Stake Lost</span> : <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Flame size={12} className="text-gold" /> {item.current_streak} Day Streak</span>}
+                      {item.status === "failed" ? (
+                      isSolo ? (
+                        <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><ShieldCheck size={12} className="text-amber" /> Missed (Protected)</span>
+                      ) : (
+                        <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><XCircle size={12} className="text-rose" /> Stake Lost</span>
+                      )
+                    ) : <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}><Flame size={12} className="text-gold" /> {item.current_streak} Day Streak</span>}
                     </span>
                   </div>
                   <div className="leaderboard-row__checkins">

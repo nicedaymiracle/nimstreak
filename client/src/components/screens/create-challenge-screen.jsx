@@ -37,10 +37,10 @@ export function CreateChallengeScreen({
   const estimatedQuitRate = 0.3; // 30% quit rate estimate for preview
   const estimatedParticipants = type === "solo" ? 1 : type === "group" ? 10 : 25;
   const totalEstimatedPool = estimatedParticipants * stakeNim;
-  const estimatedQuitters = Math.floor(estimatedParticipants * estimatedQuitRate);
+  const estimatedQuitters = type === "solo" ? 0 : Math.floor(estimatedParticipants * estimatedQuitRate);
   const estimatedFinishers = Math.max(1, estimatedParticipants - estimatedQuitters);
   const estimatedQuitterPool = estimatedQuitters * stakeNim;
-  const estimatedBonus = type === "solo" ? 0 : (estimatedQuitterPool / estimatedFinishers) * 0.9;
+  const estimatedBonus = type === "solo" ? Math.min(stakeNim * 0.5, 5) : (estimatedQuitterPool / estimatedFinishers);
   const estimatedTotalReturn = stakeNim + estimatedBonus;
 
   const handleSubmit = async (e) => {
@@ -331,23 +331,24 @@ export function CreateChallengeScreen({
           <div className="create-summary-body">
             <p className="create-summary-desc">
               Complete your challenge and get your original {Number(stakeNim || 0).toFixed(1)} NIM stake back.
-              {type !== "solo" ? " If other participants quit, their forfeited stakes form a reward pool shared equally among successful finishers." : " Solo challenges return 100% of your stake upon completion."}
+              {type === "solo"
+                ? " In solo mode, your principal stake is 100% protected even if you miss a check-in. Complete 100% of days to unlock an eligible NimStreak completion bonus!"
+                : " If other participants quit, their forfeited stakes form a Quitter Pool shared equally among successful finishers with 0% treasury deductions."}
             </p>
 
             <p className="create-summary-sub">
               {type === "solo"
-                ? "Solo habit challenges return 100% of your stake upon completing all daily check-ins."
-                : "Finishers share 100% of forfeited stakes with zero treasury fee. NimStreak may also provide a separate bonus of up to 50% of the stake (max 5 NIM per finisher, 20 NIM challenge cap), scaled proportionally when required."}
+                ? "Complete 100% of required days → 100% stake returned + eligible completion bonus. Miss a day → 100% stake returned + no bonus. No Quitter Pool."
+                : "Complete 100% of required days → 100% stake returned + share of Quitter Pool + completion bonus. Miss a day → stake forfeited into Quitter Pool for finishers."}
             </p>
 
             {/* Expandable Worked Example Accordion */}
-            {type !== "solo" && (
-              <WorkedExampleCard
-                isCollapsible={true}
-                defaultExpanded={false}
-                showBonusNote={true}
-              />
-            )}
+            <WorkedExampleCard
+              isCollapsible={true}
+              defaultExpanded={false}
+              showBonusNote={true}
+              challengeType={type}
+            />
           </div>
         </div>
 

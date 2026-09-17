@@ -28,6 +28,7 @@ export function WorkedExampleCard({
   defaultExpanded = true,
   isCollapsible = false,
   showBonusNote = true,
+  challengeType = null,
   className = "",
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -203,6 +204,33 @@ export function WorkedExampleCard({
               </span>
             </div>
           )}
+
+          {/* Solo vs Communal Rules Notice */}
+          <div className="example-solo-note" style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "0.5rem",
+            padding: "0.75rem",
+            borderRadius: "0.5rem",
+            background: "rgba(59, 130, 246, 0.08)",
+            border: "1px solid rgba(59, 130, 246, 0.25)",
+            fontSize: "0.8rem",
+            color: "var(--text-secondary)",
+            marginTop: "0.75rem",
+            lineHeight: 1.45,
+          }}>
+            <ShieldCheck size={16} className="text-emerald flex-shrink-0" style={{ marginTop: "0.1rem" }} aria-hidden="true" />
+            <div>
+              <strong style={{ color: "var(--text-primary)", display: "block", marginBottom: "0.15rem" }}>
+                {challengeType === "solo" ? "Solo Mode: 100% Principal Protection" : "Solo vs Public Reward Model"}
+              </strong>
+              <span>
+                {challengeType === "solo"
+                  ? "In solo challenges, your principal stake is 100% protected and returned even if you miss a check-in. Completing 100% of days unlocks an eligible NimStreak completion bonus. Solo challenges have no Quitter Pool."
+                  : "This worked example illustrates public and group challenges with communal Quitter Pools. In solo challenges, your principal stake is always 100% protected (complete = stake + bonus, miss a day = stake returned with no bonus)."}
+              </span>
+            </div>
+          </div>
 
           {/* Educational Disclaimer */}
           <div className="example-disclaimer">

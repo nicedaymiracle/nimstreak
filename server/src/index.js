@@ -296,7 +296,7 @@ app.get("/api/challenges/:id", async (req, res) => {
 
     const participants = await db.getChallengeParticipants(id);
     const payouts = await db.getChallengePayouts(id);
-    const calculation = calculatePayouts(participants);
+    const calculation = calculatePayouts(participants, null, null, challenge.type);
 
     return res.json({
       challenge,
@@ -590,13 +590,19 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       return res.status(404).json({ error: "You are not a participant in this challenge." });
     }
     if (participant.status === "failed") {
-      return res.status(400).json({ error: "Your stake in this challenge was forfeited due to missed check-ins." });
+      // Solo challenges: failed participants can still claim their protected stake return (no bonus)
+      // Public/Group challenges: failed participants have forfeited their stake
+      if (challenge.type !== "solo") {
+        return res.status(400).json({ error: "Your stake in this challenge was forfeited due to missed check-ins." });
+      }
     }
 
     const fundingAddress = participant.wallet_address;
     const profileWallet = participant.profile_wallet || normalizedWallet;
 
-    const existingPayout = await db.getPayout(id, fundingAddress, "stake_return_plus_bonus");
+    const existingPayout =
+      (await db.getPayout(id, fundingAddress, "solo_stake_return")) ||
+      (await db.getPayout(id, fundingAddress, "stake_return_plus_bonus"));
     if (existingPayout) {
       if (existingPayout.status === "sent") {
         // Verify whether the payout transaction is truly confirmed on-chain
@@ -620,12 +626,12 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
 
         // Revert profile completed count if prematurely incremented
         const prof = await db.getProfile(profileWallet);
-        if (prof && prof.completed_challenges > 0) {
+        if (prof && existingPayout.payout_type !== "solo_stake_return" && prof.completed_challenges > 0) {
           await db.updateProfile(profileWallet, {
             completed_challenges: Math.max(0, (prof.completed_challenges || 1) - 1),
             total_nim_earned: Math.max(
               0,
-              (prof.total_nim_earned || 0) - (Number(existingPayout.bonus_nim || existingPayout.amount_nim) || 0)
+              (prof.total_nim_earned || 0) - (Number(existingPayout.bonus_nim) || 0)
             ),
           });
         }
@@ -640,7 +646,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
     }
 
     const allParticipants = await db.getChallengeParticipants(id);
-    const calculation = calculatePayouts(allParticipants);
+    const calculation = calculatePayouts(allParticipants, null, null, challenge.type);
     const myPayout = calculation.payouts.find((p) => p.wallet_address === fundingAddress);
 
     if (!myPayout || BigInt(myPayout.total_luna) <= 0n) {
@@ -698,13 +704,16 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       status: "sent",
     });
 
-    // Credit profile stats to stable profile identity
-    const prof = await db.getProfile(profileWallet);
-    if (prof) {
-      await db.updateProfile(profileWallet, {
-        completed_challenges: (prof.completed_challenges || 0) + 1,
-        total_nim_earned: (prof.total_nim_earned || 0) + (Number(myPayout.bonus_nim || myPayout.total_nim) || 0),
-      });
+    // Credit profile stats to stable profile identity only for successful finishers
+    const isSoloMissed = myPayout.payout_type === "solo_stake_return" || participant.status === "failed";
+    if (!isSoloMissed) {
+      const prof = await db.getProfile(profileWallet);
+      if (prof) {
+        await db.updateProfile(profileWallet, {
+          completed_challenges: (prof.completed_challenges || 0) + 1,
+          total_nim_earned: (prof.total_nim_earned || 0) + (Number(myPayout.bonus_nim) || 0),
+        });
+      }
     }
 
     broadcastChallengeUpdate(id, "payout:claimed", {
@@ -923,10 +932,12 @@ export async function runDailyCronEvaluation() {
     // 1. Mark missed participants as failed
     const quitters = await db.evaluateDailyMissedCheckins();
     for (const quitter of quitters) {
-      console.log(`[cron:failed] Participant ${quitter.wallet_address} missed check-in on ${quitter.title}. Stake forfeit.`);
-      broadcastChallengeUpdate(quitter.challenge_id, "stake:lost", {
+      const isSoloChallenge = quitter.challenge_type === "solo";
+      console.log(`[cron:failed] Participant ${quitter.wallet_address} missed check-in on ${quitter.title}. ${isSoloChallenge ? "Stake protected, bonus lost (solo)." : "Stake forfeit."}`);
+      broadcastChallengeUpdate(quitter.challenge_id, isSoloChallenge ? "stake:protected" : "stake:lost", {
         walletAddress: quitter.wallet_address,
         stakeAmount: quitter.stake_amount,
+        isSolo: isSoloChallenge,
       });
     }
 
@@ -934,7 +945,7 @@ export async function runDailyCronEvaluation() {
     const endedResults = await db.evaluateEndedChallenges();
     for (const item of endedResults) {
       console.log(`[cron:complete] Challenge "${item.challenge.title}" (${item.challenge.id}) has finished.`);
-      const payoutResult = calculatePayouts(item.participants);
+      const payoutResult = calculatePayouts(item.participants, null, null, item.challenge.type);
 
       broadcastChallengeUpdate(item.challenge.id, "challenge:completed", {
         payouts: payoutResult.payouts,
