@@ -5,19 +5,19 @@ import db, {
   resolveProfileWallet,
 } from "./db.js";
 
-export const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+export const VAPID_PUBLIC_KEY =
+  process.env.VAPID_PUBLIC_KEY;
 
-export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+export const VAPID_PRIVATE_KEY =
+  process.env.VAPID_PRIVATE_KEY;
 
 export const VAPID_SUBJECT =
   process.env.VAPID_SUBJECT || "mailto:team@nimstreak.app";
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  try {
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-  } catch (vapidErr) {
-    console.warn("[vapid:init] Notice configuring VAPID:", vapidErr.message);
-  }
+try {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} catch (vapidErr) {
+  console.warn("[vapid:init] Notice configuring VAPID:", vapidErr.message);
 }
 
 export function getVapidPublicKey() {
