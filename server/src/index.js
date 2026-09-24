@@ -597,12 +597,45 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       }
     }
 
-    const fundingAddress = participant.wallet_address;
-    const profileWallet = participant.profile_wallet || normalizedWallet;
+    let fundingAddress = normalizeAddress(participant.wallet_address);
+    const profileWallet = normalizeAddress(participant.profile_wallet || normalizedWallet);
+
+    // Deterministically verify the participant funding identity against the original stake transaction on-chain
+    if (participant.stake_tx_hash) {
+      try {
+        const stakeTx = await getOnChainTransaction(participant.stake_tx_hash);
+        if (stakeTx) {
+          const verifiedStakeSender = normalizeAddress(stakeTx.from || stakeTx.sender);
+          if (verifiedStakeSender) {
+            if (fundingAddress && fundingAddress !== verifiedStakeSender) {
+              console.error(
+                `[challenges:claim] CRITICAL: Mismatched participant funding identity for challenge ${id}: stored participant wallet (${fundingAddress}) != verified stake transaction sender (${verifiedStakeSender}). Refusing payout.`
+              );
+              return res.status(400).json({
+                error: `Mismatched participant funding identity: stored participant wallet (${fundingAddress}) does not match verified stake transaction sender (${verifiedStakeSender}).`,
+              });
+            }
+            fundingAddress = verifiedStakeSender;
+          }
+        }
+      } catch (stakeVerifyErr) {
+        console.warn(`[challenges:claim] Notice verifying stake tx ${participant.stake_tx_hash}:`, stakeVerifyErr.message);
+      }
+    }
+
+    if (!fundingAddress || !isNimiqAddress(fundingAddress)) {
+      return res.status(400).json({
+        error: "Unable to determine a valid authoritative funding address for payout.",
+      });
+    }
 
     const existingPayout =
       (await db.getPayout(id, fundingAddress, "solo_stake_return")) ||
-      (await db.getPayout(id, fundingAddress, "stake_return_plus_bonus"));
+      (await db.getPayout(id, fundingAddress, "stake_return_plus_bonus")) ||
+      (profileWallet && profileWallet !== fundingAddress
+        ? (await db.getPayout(id, profileWallet, "solo_stake_return")) ||
+          (await db.getPayout(id, profileWallet, "stake_return_plus_bonus"))
+        : null);
     if (existingPayout) {
       if (existingPayout.status === "sent") {
         // Verify whether the payout transaction is truly confirmed on-chain
@@ -620,6 +653,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
         );
         await db.recordPayout({
           ...existingPayout,
+          profile_wallet: profileWallet,
           status: "failed",
           error: `Previous transaction ${existingPayout.tx_hash} was not confirmed on-chain. Recovered for re-claim.`,
         });
@@ -657,6 +691,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
     await db.recordPayout({
       challenge_id: id,
       wallet_address: fundingAddress,
+      profile_wallet: profileWallet,
       amount_nim: myPayout.total_nim,
       amount_luna: myPayout.total_luna,
       payout_type: myPayout.payout_type,
@@ -679,6 +714,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
       await db.recordPayout({
         challenge_id: id,
         wallet_address: fundingAddress,
+        profile_wallet: profileWallet,
         amount_nim: myPayout.total_nim,
         amount_luna: myPayout.total_luna,
         payout_type: myPayout.payout_type,
@@ -696,6 +732,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
     await db.recordPayout({
       challenge_id: id,
       wallet_address: fundingAddress,
+      profile_wallet: profileWallet,
       amount_nim: myPayout.total_nim,
       amount_luna: myPayout.total_luna,
       payout_type: myPayout.payout_type,
@@ -719,6 +756,7 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
     broadcastChallengeUpdate(id, "payout:claimed", {
       walletAddress: normalizedWallet,
       fundingAddress,
+      profileWallet,
       amountNim: myPayout.total_nim,
       amountLuna: myPayout.total_luna,
       txHash: payoutTx.txHash,
@@ -726,8 +764,11 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
 
     return res.json({
       success: true,
-      message: `🎉 Successfully claimed ${myPayout.total_nim} NIM!`,
+      message: `🎉 Successfully claimed ${myPayout.total_nim} NIM to funding address ${fundingAddress}!`,
       txHash: payoutTx.txHash,
+      fundingAddress,
+      profileWallet,
+      recipient: fundingAddress,
       amountNim: myPayout.total_nim,
       amountLuna: myPayout.total_luna,
       breakdown: {
@@ -961,15 +1002,24 @@ export async function runDailyCronEvaluation() {
   }
 }
 
-// Run cron every 6 hours and on startup after 5 seconds
-setInterval(runDailyCronEvaluation, 6 * 3600 * 1000);
-// Run device notification scheduler every 15 minutes
-setInterval(() => {
-  runNotificationScheduler().catch((err) => console.warn("[notification-scheduler:interval:error]", err.message));
-}, 15 * 60 * 1000);
-setTimeout(runDailyCronEvaluation, 5000);
-
 // ── Start Server ─────────────────────────────────────────────────
+const isTestEnv = process.env.NODE_ENV === "test" || process.argv.some((arg) => arg.includes("test"));
+
+if (!isTestEnv) {
+  // Run cron every 6 hours and on startup after 5 seconds
+  setInterval(runDailyCronEvaluation, 6 * 3600 * 1000);
+  // Run device notification scheduler every 15 minutes
+  setInterval(() => {
+    runNotificationScheduler().catch((err) => console.warn("[notification-scheduler:interval:error]", err.message));
+  }, 15 * 60 * 1000);
+  setTimeout(runDailyCronEvaluation, 5000);
+
+  bootstrap().catch((err) => {
+    console.error("Fatal startup error:", err);
+    process.exit(1);
+  });
+}
+
 async function bootstrap() {
   await initDb();
 
@@ -978,10 +1028,5 @@ async function bootstrap() {
     console.log(`📡 WebSocket server initialized`);
   });
 }
-
-bootstrap().catch((err) => {
-  console.error("Fatal startup error:", err);
-  process.exit(1);
-});
 
 export { app, server };

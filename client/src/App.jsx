@@ -461,7 +461,10 @@ export default function App() {
       throw new Error(json.error || "Failed to claim reward");
     }
 
-    showToast(`💎 Payout sent! ${json.amountNim} NIM transferred to your wallet.`);
+    const destShort = json.fundingAddress
+      ? ` to ${json.fundingAddress.slice(0, 4)}...${json.fundingAddress.slice(-4)}`
+      : "";
+    showToast(`💎 Payout sent! ${json.amountNim} NIM transferred${destShort}.`);
     await fetchChallenges();
     await fetchUserData();
     return json;

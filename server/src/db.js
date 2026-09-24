@@ -1013,7 +1013,17 @@ export async function getChallengeCheckins(challengeId) {
 // ── Payouts ──────────────────────────────────────────────────────────────────
 export async function getPayout(challengeId, walletAddress, payoutType = null) {
   const norm = normalizeAddress(walletAddress);
-  const lookupAddrs = getAssociatedAddresses(walletAddress);
+  const lookupAddrs = new Set(getAssociatedAddresses(walletAddress));
+
+  if (challengeId) {
+    try {
+      const part = await getParticipant(challengeId, walletAddress);
+      if (part) {
+        if (part.wallet_address) lookupAddrs.add(normalizeAddress(part.wallet_address));
+        if (part.profile_wallet) lookupAddrs.add(normalizeAddress(part.profile_wallet));
+      }
+    } catch (_) {}
+  }
 
   const typesToCheck = payoutType
     ? [payoutType, payoutType === "solo_stake_return" ? "stake_return_plus_bonus" : "solo_stake_return"]
@@ -1069,22 +1079,24 @@ export async function getChallengePayouts(challengeId) {
 
 export async function recordPayout(payoutData) {
   const norm = normalizeAddress(payoutData.wallet_address);
+  const normProfile = payoutData.profile_wallet ? normalizeAddress(payoutData.profile_wallet) : norm;
   const payoutType = payoutData.payout_type || "stake_return_plus_bonus";
   const payoutDocId = `${payoutData.challenge_id}_${norm}_${payoutType}`;
 
   const fullPayout = {
     ...payoutData,
-    id: `payout_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
+    id: payoutData.id || `payout_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
     wallet_address: norm,
+    profile_wallet: normProfile,
     payout_type: payoutType,
-    created_at: new Date().toISOString(),
+    created_at: payoutData.created_at || new Date().toISOString(),
   };
 
   if (isFirestoreConnected && dbInstance) {
     try {
       const batch = dbInstance.batch();
       const payoutRef = dbInstance.collection("nimstreak_payouts").doc(payoutDocId);
-      const profRef = dbInstance.collection("nimstreak_profiles").doc(norm);
+      const profRef = dbInstance.collection("nimstreak_profiles").doc(normProfile);
 
       batch.set(payoutRef, fullPayout, { merge: true });
       if (fullPayout.status === "sent") {
@@ -1105,8 +1117,8 @@ export async function recordPayout(payoutData) {
       await batch.commit();
 
       if (fullPayout.status === "sent" && fullPayout.payout_type !== "solo_stake_return") {
-        await awardBadge(norm, "challenge_winner", payoutData.challenge_id);
-        await awardBadge(norm, "first_win", payoutData.challenge_id);
+        await awardBadge(normProfile, "challenge_winner", payoutData.challenge_id);
+        await awardBadge(normProfile, "first_win", payoutData.challenge_id);
       }
 
       return fullPayout;
@@ -1119,13 +1131,13 @@ export async function recordPayout(payoutData) {
   if (fullPayout.status === "sent") {
     const isSoloMissed = fullPayout.payout_type === "solo_stake_return";
     if (!isSoloMissed) {
-      const prof = await getProfile(norm);
-      await updateProfile(norm, {
+      const prof = await getProfile(normProfile);
+      await updateProfile(normProfile, {
         completed_challenges: (prof.completed_challenges || 0) + 1,
         total_nim_earned: (prof.total_nim_earned || 0) + (Number(fullPayout.bonus_nim) || 0),
       });
-      await awardBadge(norm, "challenge_winner", payoutData.challenge_id);
-      await awardBadge(norm, "first_win", payoutData.challenge_id);
+      await awardBadge(normProfile, "challenge_winner", payoutData.challenge_id);
+      await awardBadge(normProfile, "first_win", payoutData.challenge_id);
     }
   }
 
@@ -1180,7 +1192,8 @@ export async function getUserTransactions(walletAddress) {
       for (const addr of lookupAddrs) {
         payoutPromises.push(
           dbInstance.collection("nimstreak_payouts").where("wallet_address", "==", addr).get(),
-          dbInstance.collection("nimstreak_payouts").where("recipient_address", "==", addr).get()
+          dbInstance.collection("nimstreak_payouts").where("recipient_address", "==", addr).get(),
+          dbInstance.collection("nimstreak_payouts").where("profile_wallet", "==", addr).get()
         );
       }
       const pSnaps = await Promise.all(payoutPromises);
@@ -1188,7 +1201,7 @@ export async function getUserTransactions(walletAddress) {
         for (const doc of snap.docs) {
           const py = doc.data();
           if (py) {
-            const txKey = py.tx_hash ? `payout_${py.tx_hash}` : `payout_${py.id || doc.id}`;
+            const txKey = py.tx_hash ? `payout_${py.challenge_id}_${py.tx_hash}` : `payout_${py.id || doc.id}`;
             if (!seenTxIds.has(txKey)) {
               seenTxIds.add(txKey);
               const chal = await getChallengeById(py.challenge_id);
@@ -1208,6 +1221,8 @@ export async function getUserTransactions(walletAddress) {
                 explorer_url: py.tx_hash ? `https://nimiq.watch/#${py.tx_hash}` : null,
                 timestamp: py.created_at || py.paid_at || new Date().toISOString(),
                 wallet_address: py.wallet_address || py.recipient_address,
+                recipient_address: py.wallet_address || py.recipient_address,
+                profile_wallet: py.profile_wallet || null,
               });
             }
           }
@@ -1248,8 +1263,9 @@ export async function getUserTransactions(walletAddress) {
 
   for (const py of memoryStore.payouts.values()) {
     const pyAddr = normalizeAddress(py.wallet_address || py.recipient_address);
-    if (lookupSet.has(pyAddr)) {
-      const txKey = py.tx_hash ? `payout_${py.tx_hash}` : `payout_${py.id}`;
+    const pyProfile = py.profile_wallet ? normalizeAddress(py.profile_wallet) : null;
+    if (lookupSet.has(pyAddr) || (pyProfile && lookupSet.has(pyProfile))) {
+      const txKey = py.tx_hash ? `payout_${py.challenge_id}_${py.tx_hash}` : `payout_${py.id}`;
       if (!seenTxIds.has(txKey)) {
         seenTxIds.add(txKey);
         const chal = memoryStore.challenges.get(py.challenge_id);
@@ -1269,6 +1285,8 @@ export async function getUserTransactions(walletAddress) {
           explorer_url: py.tx_hash ? `https://nimiq.watch/#${py.tx_hash}` : null,
           timestamp: py.created_at || py.paid_at || new Date().toISOString(),
           wallet_address: py.wallet_address || py.recipient_address,
+          recipient_address: py.wallet_address || py.recipient_address,
+          profile_wallet: py.profile_wallet || null,
         });
       }
     }
