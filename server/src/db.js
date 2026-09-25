@@ -28,28 +28,16 @@ export function normalizeAddress(addr) {
   return String(addr || "").trim().replace(/\s+/g, "").toUpperCase();
 }
 
-export const CLEAN_STABLE_PROFILE = "NQ48ARHSXLJJX9D19LGL07YSDTK92THB48Y2";
-export const CLEAN_KNOWN_FUNDING = "NQ77C3P5CTMYN3BBK15KGB5GC4EBHGM5NPAN";
-
 export function getAssociatedAddresses(walletAddress) {
   const norm = normalizeAddress(walletAddress);
   if (!norm) return [];
-  if (norm === CLEAN_STABLE_PROFILE || norm === CLEAN_KNOWN_FUNDING) {
-    return [CLEAN_STABLE_PROFILE, CLEAN_KNOWN_FUNDING];
-  }
   return [norm];
 }
 
 export function resolveProfileWallet(profileWallet, fundingWallet) {
   const normP = normalizeAddress(profileWallet);
   const normF = normalizeAddress(fundingWallet);
-  if (normP === CLEAN_KNOWN_FUNDING || !normP) {
-    if (normF === CLEAN_KNOWN_FUNDING || normP === CLEAN_KNOWN_FUNDING) {
-      return CLEAN_STABLE_PROFILE;
-    }
-    return normF;
-  }
-  return normP;
+  return normP || normF;
 }
 
 /**
@@ -62,6 +50,17 @@ export function resolveProfileWallet(profileWallet, fundingWallet) {
  */
 export async function initDb() {
   if (dbInstance) return dbInstance;
+
+  // Protect production database: during automated test runs, strictly force in-memory store
+  const isTest = process.env.NODE_ENV === "test" ||
+                 Boolean(process.env.NODE_TEST_CONTEXT) ||
+                 process.execArgv.some(arg => typeof arg === "string" && arg.includes("--test")) ||
+                 process.argv.some(arg => typeof arg === "string" && (arg.includes("test") || arg.includes(".test.")));
+  if (isTest) {
+    console.info("🧪 Test environment detected: Running NimStreak database in isolated in-memory mode.");
+    isFirestoreConnected = false;
+    return null;
+  }
 
   try {
     let credential = null;
@@ -195,23 +194,6 @@ export async function getProfile(walletAddress) {
       const doc = await docRef.get();
       let profile = doc.exists ? doc.data() : { ...defaultProfile };
 
-      if (norm === CLEAN_STABLE_PROFILE) {
-        const fundingDoc = await dbInstance.collection("nimstreak_profiles").doc(CLEAN_KNOWN_FUNDING).get();
-        if (fundingDoc.exists) {
-          const fData = fundingDoc.data();
-          return {
-            ...profile,
-            total_challenges: Math.max(profile.total_challenges || 0, fData.total_challenges || 0),
-            completed_challenges: Math.max(profile.completed_challenges || 0, fData.completed_challenges || 0),
-            failed_challenges: Math.max(profile.failed_challenges || 0, fData.failed_challenges || 0),
-            total_nim_staked: Math.max(profile.total_nim_staked || 0, fData.total_nim_staked || 0),
-            total_nim_earned: Math.max(profile.total_nim_earned || 0, fData.total_nim_earned || 0),
-            longest_streak_ever: Math.max(profile.longest_streak_ever || 0, fData.longest_streak_ever || 0),
-            current_active_streak: Math.max(profile.current_active_streak || 0, fData.current_active_streak || 0),
-          };
-        }
-      }
-
       return profile;
     } catch (err) {
       console.warn("[firestore:getProfile] error:", err.message);
@@ -221,21 +203,7 @@ export async function getProfile(walletAddress) {
   if (!memoryStore.profiles.has(norm)) {
     memoryStore.profiles.set(norm, { ...defaultProfile });
   }
-  const memProfile = memoryStore.profiles.get(norm);
-  if (norm === CLEAN_STABLE_PROFILE && memoryStore.profiles.has(CLEAN_KNOWN_FUNDING)) {
-    const fData = memoryStore.profiles.get(CLEAN_KNOWN_FUNDING);
-    return {
-      ...memProfile,
-      total_challenges: Math.max(memProfile.total_challenges || 0, fData.total_challenges || 0),
-      completed_challenges: Math.max(memProfile.completed_challenges || 0, fData.completed_challenges || 0),
-      failed_challenges: Math.max(memProfile.failed_challenges || 0, fData.failed_challenges || 0),
-      total_nim_staked: Math.max(memProfile.total_nim_staked || 0, fData.total_nim_staked || 0),
-      total_nim_earned: Math.max(memProfile.total_nim_earned || 0, fData.total_nim_earned || 0),
-      longest_streak_ever: Math.max(memProfile.longest_streak_ever || 0, fData.longest_streak_ever || 0),
-      current_active_streak: Math.max(memProfile.current_active_streak || 0, fData.current_active_streak || 0),
-    };
-  }
-  return memProfile;
+  return memoryStore.profiles.get(norm);
 }
 
 export async function updateProfile(walletAddress, fields = {}) {

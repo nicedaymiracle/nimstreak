@@ -183,7 +183,7 @@ describe("Minimal Stable Wallet Identity Architecture", () => {
     assert.strictEqual(content.includes("sync-accounts"), false, "/sync-accounts must not exist in server/src/index.js");
   });
 
-  it("8. getUserChallenges for NQ48 retrieves challenges funded by NQ77 even when stored without profile_wallet", async () => {
+  it("8. getUserChallenges isolates unlinked wallets when stored without profile_wallet", async () => {
     const legacyProdChallengeId = `ch_legacy_prod_${Date.now()}`;
     await db.createChallenge(
       {
@@ -197,20 +197,25 @@ describe("Minimal Stable Wallet Identity Architecture", () => {
       {
         stake_tx_hash: "8888567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
         wallet_address: normFunding,
-        // profile_wallet missing (as was the case in the existing production record)
+        // profile_wallet missing (unlinked)
         stake_amount: 0.5,
         status: "active",
       }
     );
 
-    const res = await db.getUserChallenges(normProfile);
-    const match = res.all.find((c) => c.challenge_id === legacyProdChallengeId);
-    assert.ok(match, "NQ48 profile must retrieve challenge funded by NQ77");
-    assert.strictEqual(match.wallet_address, normFunding, "Funding address NQ77 must be preserved");
-    assert.strictEqual(match.profile_wallet, normProfile, "Profile wallet must resolve to NQ48");
+    // Profile NQ48 should NOT see challenges from unlinked wallet NQ77
+    const resProfile = await db.getUserChallenges(normProfile);
+    const matchProfile = resProfile.all.find((c) => c.challenge_id === legacyProdChallengeId);
+    assert.strictEqual(matchProfile, undefined, "Unlinked NQ48 profile must not see challenge funded by NQ77");
+
+    // Funding wallet NQ77 directly sees its own challenge
+    const resFunding = await db.getUserChallenges(normFunding);
+    const matchFunding = resFunding.all.find((c) => c.challenge_id === legacyProdChallengeId);
+    assert.ok(matchFunding, "Funding wallet NQ77 must retrieve its own challenge");
+    assert.strictEqual(matchFunding.wallet_address, normFunding);
   });
 
-  it("9. getParticipant for NQ48 finds participant funded by NQ77 and resolves profile_wallet", async () => {
+  it("9. getParticipant for unlinked wallet returns null unless wallet_address or profile_wallet matches", async () => {
     const legacyProdChallengeId = `ch_legacy_prod_${Date.now()}`;
     await db.createChallenge(
       {
@@ -229,9 +234,11 @@ describe("Minimal Stable Wallet Identity Architecture", () => {
       }
     );
 
-    const part = await db.getParticipant(legacyProdChallengeId, normProfile);
-    assert.ok(part, "Participant must be found using NQ48 profile");
-    assert.strictEqual(part.wallet_address, normFunding);
-    assert.strictEqual(part.profile_wallet, normProfile);
+    const partUnlinked = await db.getParticipant(legacyProdChallengeId, normProfile);
+    assert.strictEqual(partUnlinked, null, "Unlinked profile NQ48 must not find participant funded by NQ77");
+
+    const partFunding = await db.getParticipant(legacyProdChallengeId, normFunding);
+    assert.ok(partFunding, "Participant must be found using actual funding address NQ77");
+    assert.strictEqual(partFunding.wallet_address, normFunding);
   });
 });
