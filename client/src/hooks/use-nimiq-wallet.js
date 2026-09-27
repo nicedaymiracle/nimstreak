@@ -72,6 +72,8 @@ async function fetchTransactionData(txHash, maxAttempts = 6, delayMs = 600) {
   }
 
   return null;
+}
+
 const STORAGE_KEY = NIMSTREAK_STORAGE_KEY || "nimstreak_wallet_address";
 const PREFERRED_WALLET_KEY = "nimstreak_preferred_wallet";
 

@@ -10,7 +10,7 @@ const defaultRpcUrl = NIMIQ_NETWORK === "testnet"
 const defaultNetworkId = NIMIQ_NETWORK === "testnet" ? 5 : 24;
 
 const NIMIQ_RPC_URL = process.env.NIMIQ_RPC_URL || defaultRpcUrl;
-const TREASURY_ADDRESS = (process.env.NIMIQ_TREASURY_ADDRESS || "NQ68 LS47 5LF6 C7CU MVB6 KL55 YSFG PEXJ ADJ0").trim();
+export const TREASURY_ADDRESS = (process.env.NIMIQ_TREASURY_ADDRESS || "NQ68 LS47 5LF6 C7CU MVB6 KL55 YSFG PEXJ ADJ0").trim();
 const TREASURY_PRIVATE_KEY = (process.env.NIMIQ_TREASURY_PRIVATE_KEY || "").trim();
 const TREASURY_FEE_PERCENT = parseInt(process.env.TREASURY_FEE_PERCENT || "10", 10);
 export const NIMIQ_NETWORK_ID = parseInt(process.env.NIMIQ_NETWORK_ID || String(defaultNetworkId), 10); // 24 = mainnet, 5 = testnet
@@ -196,6 +196,93 @@ export function calculatePayouts(participants = [], totalPoolInput = null, maxCh
 }
 
 /**
+ * Canonical resolver for determining the true funding wallet from an on-chain Nimiq stake transaction.
+ *
+ * Rules:
+ * 1. If fromType is NOT 2 (not an HTLC):
+ *    use the normal transaction sender: tx.from or tx.sender
+ * 2. If fromType === 2 (HTLC):
+ *    DO NOT use tx.from as the funding wallet.
+ *    Decode the HTLC proof using Nimiq.HashedTimeLockedContract.proofToPlain.
+ *    Extract: proof.creator
+ *    Normalize proof.creator. That creator is the verified funding wallet.
+ * 3. If the HTLC proof cannot be decoded or has no valid creator:
+ *    FAIL CLOSED. Do NOT fall back to tx.from. Do NOT use profile_wallet.
+ * 4. Return:
+ *    {
+ *      fundingAddress: string,      // actual human/user funding wallet
+ *      transactionAddress: string,  // raw tx.from / HTLC contract address
+ *      transactionType: number,     // tx.fromType
+ *      isHtlc: boolean,             // whether tx is an HTLC
+ *      htlcProofType?: string       // e.g. "early-resolve", "timeout-resolve"
+ *    }
+ */
+export function resolveVerifiedFundingAddress(txData) {
+  if (!txData) {
+    throw new Error("Cannot resolve funding address: Transaction data is missing.");
+  }
+
+  const rawFrom = normalizeAddress(txData.from || txData.sender);
+  if (!rawFrom || !isNimiqAddress(rawFrom)) {
+    throw new Error(`Invalid transaction sender address: "${txData.from || txData.sender}"`);
+  }
+
+  const fromType = Number(txData.fromType !== undefined ? txData.fromType : 0);
+
+  // If fromType is NOT 2: standard basic account transaction
+  if (fromType !== 2) {
+    return {
+      fundingAddress: rawFrom,
+      transactionAddress: rawFrom,
+      transactionType: fromType,
+      isHtlc: false,
+    };
+  }
+
+  // If fromType === 2: HTLC Transaction.
+  // rawFrom is the HTLC contract address, NOT the funding wallet.
+  const proofHex = typeof txData.proof === "string" ? txData.proof.trim() : "";
+  if (!proofHex) {
+    throw new Error(
+      `HTLC transaction (${txData.hash || "unknown"}) contains no proof data. Cannot verify funding wallet.`
+    );
+  }
+
+  let decodedProof = null;
+  try {
+    const proofBytes = Buffer.from(proofHex, "hex");
+    decodedProof = Nimiq.HashedTimeLockedContract.proofToPlain(proofBytes);
+  } catch (err) {
+    throw new Error(
+      `Failed to decode HTLC proof for transaction (${txData.hash || "unknown"}): ${err.message || err}`
+    );
+  }
+
+  if (!decodedProof) {
+    throw new Error(
+      `HTLC proof decoding returned empty result for transaction (${txData.hash || "unknown"}).`
+    );
+  }
+
+  const creatorRaw = decodedProof.creator;
+  const creator = normalizeAddress(creatorRaw);
+
+  if (!creator || !isNimiqAddress(creator)) {
+    throw new Error(
+      `HTLC proof (${decodedProof.type || "unknown"}) has no valid creator address for transaction (${txData.hash || "unknown"}).`
+    );
+  }
+
+  return {
+    fundingAddress: creator,
+    transactionAddress: rawFrom,
+    transactionType: fromType,
+    isHtlc: true,
+    htlcProofType: decodedProof.type,
+  };
+}
+
+/**
  * Verify a client-submitted stake transaction on the Nimiq network.
  * Verifies on-chain existence, sender, recipient, value, and execution status.
  */
@@ -222,6 +309,8 @@ export async function verifyStakeTransaction({
       verified: true,
       txHash: cleanHash,
       from: normalizedSender || "NQ0000000000000000000000000000000000",
+      rawFrom: normalizedSender || "NQ0000000000000000000000000000000000",
+      isHtlc: false,
       to: normalizedTreasury,
       valueLuna: Number(expectedLuna),
       bypassed: true,
@@ -235,7 +324,10 @@ export async function verifyStakeTransaction({
     throw new Error(`Transaction ${cleanHash} not found on the Nimiq network. Please wait for confirmation.`);
   }
 
-  const actualFrom = normalizeAddress(txData.from || txData.sender);
+  // Canonical resolution of the true funding wallet
+  const resolvedFunding = resolveVerifiedFundingAddress(txData);
+  const actualFundingAddress = resolvedFunding.fundingAddress;
+  const actualTransactionAddress = resolvedFunding.transactionAddress;
   const actualTo = normalizeAddress(txData.to || txData.recipient);
   const actualValueLuna = BigInt(txData.value || 0);
   const executionResult = txData.executionResult !== undefined ? txData.executionResult : true;
@@ -244,9 +336,9 @@ export async function verifyStakeTransaction({
     throw new Error(`Transaction ${cleanHash} failed execution on the blockchain.`);
   }
 
-  if (normalizedSender && actualFrom !== normalizedSender) {
+  if (normalizedSender && actualFundingAddress !== normalizedSender) {
     throw new Error(
-      `Transaction sender mismatch: Expected ${normalizedSender}, but transaction was sent from ${actualFrom}.`
+      `Transaction sender mismatch: Expected ${normalizedSender}, but transaction was funded by ${actualFundingAddress}${resolvedFunding.isHtlc ? ` (via HTLC contract ${actualTransactionAddress})` : ""}.`
     );
   }
 
@@ -265,7 +357,9 @@ export async function verifyStakeTransaction({
   return {
     verified: true,
     txHash: cleanHash,
-    from: actualFrom,
+    from: actualFundingAddress,
+    rawFrom: actualTransactionAddress,
+    isHtlc: resolvedFunding.isHtlc,
     to: actualTo,
     valueLuna: Number(actualValueLuna),
     blockNumber: txData.blockNumber,

@@ -13,6 +13,7 @@ import {
   isNimiqAddress,
   verifyStakeTransaction,
   getOnChainTransaction,
+  resolveVerifiedFundingAddress,
   nimToLuna,
   lunaToNim,
   LUNA_PER_NIM,
@@ -599,28 +600,57 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
 
     let fundingAddress = normalizeAddress(participant.wallet_address);
     const profileWallet = normalizeAddress(participant.profile_wallet || normalizedWallet);
+    let isKnownHtlcContract = false;
+    let resolvedStakeFunding = null;
 
     // Deterministically verify the participant funding identity against the original stake transaction on-chain
-    if (participant.stake_tx_hash) {
-      try {
-        const stakeTx = await getOnChainTransaction(participant.stake_tx_hash);
-        if (stakeTx) {
-          const verifiedStakeSender = normalizeAddress(stakeTx.from || stakeTx.sender);
-          if (verifiedStakeSender) {
-            if (fundingAddress && fundingAddress !== verifiedStakeSender) {
-              console.error(
-                `[challenges:claim] CRITICAL: Mismatched participant funding identity for challenge ${id}: stored participant wallet (${fundingAddress}) != verified stake transaction sender (${verifiedStakeSender}). Refusing payout.`
-              );
-              return res.status(400).json({
-                error: `Mismatched participant funding identity: stored participant wallet (${fundingAddress}) does not match verified stake transaction sender (${verifiedStakeSender}).`,
-              });
-            }
-            fundingAddress = verifiedStakeSender;
-          }
-        }
-      } catch (stakeVerifyErr) {
-        console.warn(`[challenges:claim] Notice verifying stake tx ${participant.stake_tx_hash}:`, stakeVerifyErr.message);
+    if (!participant.stake_tx_hash) {
+      return res.status(400).json({
+        error: "No stake transaction hash recorded for participant. Cannot verify funding wallet.",
+      });
+    }
+
+    try {
+      const stakeTx = await getOnChainTransaction(participant.stake_tx_hash);
+      if (!stakeTx) {
+        return res.status(400).json({
+          error: "Unable to verify original stake transaction on-chain. Please ensure transaction is confirmed.",
+        });
       }
+
+      // Canonical resolution of the true funding wallet from the on-chain stake transaction
+      resolvedStakeFunding = resolveVerifiedFundingAddress(stakeTx);
+      const verifiedFundingAddress = normalizeAddress(resolvedStakeFunding.fundingAddress);
+
+      if (!verifiedFundingAddress || !isNimiqAddress(verifiedFundingAddress)) {
+        return res.status(400).json({
+          error: "Unable to determine a valid authoritative funding address from original stake transaction.",
+        });
+      }
+
+      // Backward-compatibility bridge for legacy challenges created before HTLC decoding fix:
+      // If stored participant.wallet_address is the disposable HTLC contract address from this exact stake tx,
+      // allow and upgrade the destination to the decoded human proof.creator.
+      isKnownHtlcContract =
+        resolvedStakeFunding.isHtlc &&
+        fundingAddress === normalizeAddress(resolvedStakeFunding.transactionAddress);
+
+      if (fundingAddress !== verifiedFundingAddress && !isKnownHtlcContract) {
+        console.error(
+          `[challenges:claim] CRITICAL: Mismatched participant funding identity for challenge ${id}: stored participant wallet (${fundingAddress}) != verified stake transaction funder (${verifiedFundingAddress}). Refusing payout.`
+        );
+        return res.status(400).json({
+          error: `Mismatched participant funding identity: stored participant wallet (${fundingAddress}) does not match verified stake transaction funder (${verifiedFundingAddress}).`,
+        });
+      }
+
+      // Always upgrade payout destination to the verified human funding address (proof.creator)
+      fundingAddress = verifiedFundingAddress;
+    } catch (stakeVerifyErr) {
+      console.warn(`[challenges:claim] Notice verifying stake tx ${participant.stake_tx_hash}:`, stakeVerifyErr.message);
+      return res.status(400).json({
+        error: `Stake transaction verification failed: ${stakeVerifyErr.message}`,
+      });
     }
 
     if (!fundingAddress || !isNimiqAddress(fundingAddress)) {
@@ -681,7 +711,13 @@ app.post("/api/challenges/:id/claim", async (req, res) => {
 
     const allParticipants = await db.getChallengeParticipants(id);
     const calculation = calculatePayouts(allParticipants, null, null, challenge.type);
-    const myPayout = calculation.payouts.find((p) => p.wallet_address === fundingAddress);
+    const myPayout = calculation.payouts.find((p) => {
+      const normPWallet = normalizeAddress(p.wallet_address);
+      return (
+        normPWallet === fundingAddress ||
+        (isKnownHtlcContract && normPWallet === normalizeAddress(resolvedStakeFunding.transactionAddress))
+      );
+    });
 
     if (!myPayout || BigInt(myPayout.total_luna) <= 0n) {
       return res.status(400).json({ error: "No eligible payout found for this address." });
