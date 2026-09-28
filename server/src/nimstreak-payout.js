@@ -236,6 +236,7 @@ export function resolveVerifiedFundingAddress(txData) {
       transactionAddress: rawFrom,
       transactionType: fromType,
       isHtlc: false,
+      resolutionSource: "onchain_basic_sender",
     };
   }
 
@@ -244,7 +245,7 @@ export function resolveVerifiedFundingAddress(txData) {
   const proofHex = typeof txData.proof === "string" ? txData.proof.trim() : "";
   if (!proofHex) {
     throw new Error(
-      `HTLC transaction (${txData.hash || "unknown"}) contains no proof data. Cannot verify funding wallet.`
+      `HTLC transaction (${txData.hash || "unknown"}) contains no proof data. Cannot verify funding wallet. Payout aborted.`
     );
   }
 
@@ -273,12 +274,19 @@ export function resolveVerifiedFundingAddress(txData) {
     );
   }
 
+  if (creator === rawFrom) {
+    throw new Error(
+      `HTLC proof creator cannot be identical to the HTLC contract address (${rawFrom}). Cannot verify funding wallet.`
+    );
+  }
+
   return {
     fundingAddress: creator,
     transactionAddress: rawFrom,
     transactionType: fromType,
     isHtlc: true,
     htlcProofType: decodedProof.type,
+    resolutionSource: "onchain_htlc_proof",
   };
 }
 
@@ -408,7 +416,11 @@ export async function getOnChainTransaction(txHash) {
       if (restRes.ok) {
         const json = await restRes.json();
         if (json && !json.error) {
-          txData = json;
+          txData = {
+            ...json,
+            from: json.sender_address || json.from,
+            to: json.receiver_address || json.to,
+          };
         }
       }
     } catch (restErr) {
@@ -419,6 +431,47 @@ export async function getOnChainTransaction(txHash) {
   if (txData && (txData.hash || txData.blockNumber !== undefined || txData.value !== undefined)) {
     return txData;
   }
+
+  return null;
+}
+
+/**
+ * Query on-chain account info by address using JSON-RPC with REST fallback.
+ * Returns account object or null if query failed.
+ */
+export async function getAccountInfo(address) {
+  const cleanAddress = normalizeAddress(address);
+  if (!cleanAddress) return null;
+
+  try {
+    const rpcRes = await fetch(NIMIQ_RPC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "getAccountByAddress",
+        params: [cleanAddress],
+        id: Date.now(),
+      }),
+    });
+
+    if (rpcRes.ok) {
+      const json = await rpcRes.json();
+      if (json && json.result) {
+        return json.result.data || json.result;
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const restRes = await fetch(`https://api.nimiq.watch/account/${cleanAddress}`);
+    if (restRes.ok) {
+      const json = await restRes.json();
+      if (json && !json.error) {
+        return json;
+      }
+    }
+  } catch (_) {}
 
   return null;
 }
@@ -531,11 +584,69 @@ export async function withPayoutLock(taskFn) {
 /**
  * Construct, sign with treasury keypair, broadcast, and verify on-chain confirmation.
  * Wrapped in withPayoutLock for exclusive sequential execution.
+ *
+ * Implements strict lowest-level broadcast guards:
+ * - verifiedFundingAddress must be provided and must match 'to'
+ * - 'to' cannot be in disallowedAddresses (rejects known HTLC contract addresses)
+ * - 'to' cannot be an on-chain HTLC contract account (type: 2)
  */
-export async function sendStreakPayout({ to, amountNim, amountLuna = null, payoutType = "stake_return_plus_bonus" }) {
+export async function sendStreakPayout({
+  to,
+  amountNim,
+  amountLuna = null,
+  payoutType = "stake_return_plus_bonus",
+  verifiedFundingAddress = null,
+  disallowedAddresses = [],
+}) {
   return withPayoutLock(async () => {
-    if (!isNimiqAddress(to)) {
-      throw new Error(`Invalid Nimiq recipient address: "${to}"`);
+    const normalizedTo = normalizeAddress(to);
+    if (!normalizedTo || !isNimiqAddress(normalizedTo)) {
+      throw new Error(`Invalid Nimiq recipient address: "${to}". Aborting broadcast.`);
+    }
+
+    // FINAL GUARD 1: Verified funding address match
+    if (!verifiedFundingAddress) {
+      throw new Error(
+        "CRITICAL PAYOUT INVARIANT VIOLATION: verifiedFundingAddress is required to broadcast a payout. Aborting broadcast."
+      );
+    }
+    const normalizedVerified = normalizeAddress(verifiedFundingAddress);
+    if (!normalizedVerified || !isNimiqAddress(normalizedVerified)) {
+      throw new Error(
+        `CRITICAL PAYOUT INVARIANT VIOLATION: Verified funding address "${verifiedFundingAddress}" is invalid. Aborting broadcast.`
+      );
+    }
+    if (normalizedTo !== normalizedVerified) {
+      throw new Error(
+        `CRITICAL PAYOUT INVARIANT VIOLATION: Recipient address "${normalizedTo}" does not match verified funding address "${normalizedVerified}". Aborting broadcast.`
+      );
+    }
+
+    // FINAL GUARD 2: Explicitly reject known or passed HTLC contract addresses
+    const normalizedDisallowed = (Array.isArray(disallowedAddresses) ? disallowedAddresses : [disallowedAddresses])
+      .filter(Boolean)
+      .map(normalizeAddress);
+
+    if (normalizedDisallowed.includes(normalizedTo)) {
+      throw new Error(
+        `CRITICAL PAYOUT INVARIANT VIOLATION: Recipient address "${normalizedTo}" is an HTLC contract or disallowed address. Aborting broadcast.`
+      );
+    }
+
+    // FINAL GUARD 3: Specifically reject on-chain HTLC contract accounts (type: 2)
+    if (process.env.SKIP_TX_VERIFICATION !== "true") {
+      try {
+        const accountInfo = await getAccountInfo(normalizedTo);
+        if (accountInfo && (accountInfo.type === 2 || accountInfo.accountType === "htlc" || accountInfo.isHtlc)) {
+          throw new Error(
+            `CRITICAL PAYOUT INVARIANT VIOLATION: Recipient address "${normalizedTo}" is an on-chain HTLC contract (type: 2). Cannot pay into an HTLC contract. Aborting broadcast.`
+          );
+        }
+      } catch (accErr) {
+        if (accErr.message && accErr.message.includes("CRITICAL PAYOUT INVARIANT VIOLATION")) {
+          throw accErr;
+        }
+      }
     }
 
     const finalLuna = amountLuna !== null ? BigInt(amountLuna) : nimToLuna(amountNim);
@@ -549,7 +660,7 @@ export async function sendStreakPayout({ to, amountNim, amountLuna = null, payou
       );
     }
 
-    console.log(`[treasury:payout] Preparing payout of ${finalLuna} Luna (${lunaToNim(finalLuna)} NIM) to ${to} (${payoutType})`);
+    console.log(`[treasury:payout] Preparing payout of ${finalLuna} Luna (${lunaToNim(finalLuna)} NIM) to ${normalizedTo} (${payoutType})`);
 
     // 1. Derive treasury KeyPair
     const cleanPrivKeyHex = TREASURY_PRIVATE_KEY.replace(/^0x/, "").trim();

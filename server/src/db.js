@@ -800,6 +800,47 @@ export async function updateParticipant(challengeId, walletAddress, fields = {})
   return null;
 }
 
+export async function upgradeLegacyHtlcParticipant(challengeId, oldHtlcAddress, verifiedCreatorAddress) {
+  const normOld = normalizeAddress(oldHtlcAddress);
+  const normNew = normalizeAddress(verifiedCreatorAddress);
+  const oldDocId = `${challengeId}_${normOld}`;
+  const newDocId = `${challengeId}_${normNew}`;
+
+  const fieldsToUpdate = {
+    wallet_address: normNew,
+    legacy_htlc_contract: normOld,
+    upgraded_at: new Date().toISOString(),
+  };
+
+  if (isFirestoreConnected && dbInstance) {
+    try {
+      const batch = dbInstance.batch();
+      const oldRef = dbInstance.collection("challenge_participants").doc(oldDocId);
+      const newRef = dbInstance.collection("challenge_participants").doc(newDocId);
+      const oldDoc = await oldRef.get();
+      if (oldDoc.exists) {
+        const data = oldDoc.data();
+        batch.set(newRef, { ...data, ...fieldsToUpdate });
+        batch.delete(oldRef);
+        await batch.commit();
+      } else {
+        await newRef.set(fieldsToUpdate, { merge: true });
+      }
+    } catch (err) {
+      console.warn("[firestore:upgradeLegacyHtlcParticipant] error:", err.message);
+    }
+  }
+
+  const existing = memoryStore.participants.get(oldDocId);
+  if (existing) {
+    const updated = { ...existing, ...fieldsToUpdate };
+    memoryStore.participants.delete(oldDocId);
+    memoryStore.participants.set(newDocId, updated);
+    return updated;
+  }
+  return null;
+}
+
 // ── Checkins ─────────────────────────────────────────────────────────────────
 export async function getCheckin(challengeId, walletAddress, checkinDate) {
   const norm = normalizeAddress(walletAddress);
@@ -1051,12 +1092,25 @@ export async function recordPayout(payoutData) {
   const payoutType = payoutData.payout_type || "stake_return_plus_bonus";
   const payoutDocId = `${payoutData.challenge_id}_${norm}_${payoutType}`;
 
+  const normVerified = payoutData.verified_funding_address
+    ? normalizeAddress(payoutData.verified_funding_address)
+    : norm;
+  const rawFrom = payoutData.raw_from ? normalizeAddress(payoutData.raw_from) : norm;
+  const fromType = payoutData.from_type !== undefined ? Number(payoutData.from_type) : 0;
+  const resolutionSource = payoutData.resolution_source || "unknown";
+  const codeVersion = payoutData.code_version || "v5.1-htlc-hardened";
+
   const fullPayout = {
     ...payoutData,
     id: payoutData.id || `payout_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
     wallet_address: norm,
     profile_wallet: normProfile,
     payout_type: payoutType,
+    raw_from: rawFrom,
+    from_type: fromType,
+    resolution_source: resolutionSource,
+    verified_funding_address: normVerified,
+    code_version: codeVersion,
     created_at: payoutData.created_at || new Date().toISOString(),
   };
 

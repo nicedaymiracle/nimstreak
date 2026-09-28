@@ -6,6 +6,7 @@ import { app } from "../src/index.js";
 import {
   resolveVerifiedFundingAddress,
   verifyStakeTransaction,
+  sendStreakPayout,
   TREASURY_ADDRESS,
 } from "../src/nimstreak-payout.js";
 
@@ -23,6 +24,9 @@ describe("HTLC Funding Wallet Resolution & Payout Identity Regression Suite", ()
 
   const htlcContractAddress = "NQ25 422M B53U AHRN LLL5 26RJ 4N0Y JSXT 5MJN";
   const normHtlcContract = db.normalizeAddress(htlcContractAddress);
+
+  const htlcContractAddressNQ29 = "NQ29 GT4G PPLK LD1P YUVK BRB3 AM55 N3KA B1NS";
+  const normHtlcContractNQ29 = db.normalizeAddress(htlcContractAddressNQ29);
 
   const otherWallet = "NQ48 ARHS XLJJ X9D1 9LGL 07YS DTK9 2THB 48Y2";
   const normOther = db.normalizeAddress(otherWallet);
@@ -770,5 +774,373 @@ describe("HTLC Funding Wallet Resolution & Payout Identity Regression Suite", ()
 
     // Restore fetch
     global.fetch = originalFetch;
+  });
+
+  // ── TEST 13: HTLC NQ29→NQ59 WITH FORENSIC METADATA ──────────────────────────
+  it("TEST 13: HTLC NQ29→NQ59 pays strictly decoded proof.creator (NQ59) and attaches forensic metadata", async () => {
+    const challengeId = `ch_htlc_nq29_${Date.now()}`;
+    const stakeTxHash = "1212121212121212121212121212121212121212121212121212121212121212";
+    const payoutTxHash = "9900000100020003000400050006000700080009000a000b000c000d000e000f";
+
+    setupMockBlockchain({
+      txData: {
+        hash: stakeTxHash,
+        from: normHtlcContractNQ29, // NQ29...
+        fromType: 2,
+        to: TREASURY_ADDRESS,
+        value: 500000,
+        proof: VALID_HTLC_PROOF_HEX, // decodes to proof.creator = NQ59...
+        executionResult: true,
+      },
+      payoutConfirmedHash: payoutTxHash,
+    });
+
+    await db.createChallenge(
+      {
+        id: challengeId,
+        title: "HTLC NQ29 to NQ59 Forensic Test",
+        type: "solo",
+        duration_days: 7,
+        stake_nim: 5,
+        stake_luna: "500000",
+        created_by: normProfile,
+        status: "completed",
+        starts_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+        ends_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+      },
+      {
+        wallet_address: normUserFunder, // NQ59...
+        profile_wallet: normProfile,
+        stake_tx_hash: stakeTxHash,
+        stake_amount: 5,
+        stake_luna: "500000",
+        status: "completed",
+      }
+    );
+
+    const res = await fetch(`${serverBaseUrl}/api/challenges/${challengeId}/claim`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ walletAddress: normProfile }),
+    });
+
+    const json = await res.json();
+    assert.strictEqual(res.status, 200, `Claim must succeed: ${JSON.stringify(json)}`);
+    assert.strictEqual(json.recipient, normUserFunder, "Recipient must be NQ59");
+    assert.notStrictEqual(json.recipient, normHtlcContractNQ29, "Recipient must NEVER be NQ29");
+
+    // Forensic metadata assertions on API response
+    assert.ok(json.forensics, "Claim response must contain forensic metadata");
+    assert.strictEqual(json.forensics.raw_from, normHtlcContractNQ29, "raw_from must be NQ29");
+    assert.strictEqual(json.forensics.from_type, 2, "from_type must be 2");
+    assert.strictEqual(json.forensics.resolution_source, "onchain_htlc_proof", "resolution_source must be onchain_htlc_proof");
+    assert.strictEqual(json.forensics.verified_funding_address, normUserFunder, "verified_funding_address must be NQ59");
+    assert.strictEqual(json.forensics.code_version, "v5.1-htlc-hardened", "code_version must be v5.1-htlc-hardened");
+
+    // Forensic metadata assertions on stored DB record
+    const payoutRecord = await db.getPayout(challengeId, normUserFunder, "solo_stake_return");
+    assert.ok(payoutRecord, "Payout record must be stored in DB");
+    assert.strictEqual(payoutRecord.raw_from, normHtlcContractNQ29);
+    assert.strictEqual(payoutRecord.from_type, 2);
+    assert.strictEqual(payoutRecord.resolution_source, "onchain_htlc_proof");
+    assert.strictEqual(payoutRecord.verified_funding_address, normUserFunder);
+    assert.strictEqual(payoutRecord.code_version, "v5.1-htlc-hardened");
+  });
+
+  // ── TEST 14: MISSING PROOF → NO BROADCAST ──────────────────────────────────
+  it("TEST 14: Missing HTLC proof fails closed and causes NO broadcast", async () => {
+    const challengeId = `ch_missing_proof_${Date.now()}`;
+    const stakeTxHash = "2323232323232323232323232323232323232323232323232323232323232323";
+
+    let broadcastAttempted = false;
+    globalThis.fetch = async (url, opts) => {
+      const urlStr = String(url || "");
+      if (urlStr.startsWith("http://127.0.0.1") || urlStr.startsWith("http://localhost")) {
+        return originalFetch(url, opts);
+      }
+      const bodyStr = opts?.body || "";
+      if (bodyStr.includes("sendRawTransaction")) {
+        broadcastAttempted = true;
+      }
+      if (bodyStr.includes("getTransactionByHash")) {
+        return {
+          ok: true,
+          json: async () => ({
+            jsonrpc: "2.0",
+            result: {
+              data: {
+                hash: stakeTxHash,
+                from: normHtlcContractNQ29,
+                fromType: 2,
+                to: TREASURY_ADDRESS,
+                value: 500000,
+                proof: "", // MISSING PROOF DATA
+                executionResult: true,
+              },
+            },
+            id: 1,
+          }),
+        };
+      }
+      if (bodyStr.includes("getAccountByAddress")) {
+        return {
+          ok: true,
+          json: async () => ({
+            jsonrpc: "2.0",
+            result: { data: { balance: 1000000000 } },
+            id: 1,
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    };
+
+    await db.createChallenge(
+      {
+        id: challengeId,
+        title: "Missing Proof Test",
+        type: "solo",
+        duration_days: 7,
+        stake_nim: 5,
+        stake_luna: "500000",
+        created_by: normProfile,
+        status: "completed",
+        starts_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+        ends_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+      },
+      {
+        wallet_address: normUserFunder,
+        profile_wallet: normProfile,
+        stake_tx_hash: stakeTxHash,
+        stake_amount: 5,
+        stake_luna: "500000",
+        status: "completed",
+      }
+    );
+
+    const res = await fetch(`${serverBaseUrl}/api/challenges/${challengeId}/claim`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ walletAddress: normProfile }),
+    });
+
+    const json = await res.json();
+    assert.strictEqual(res.status, 400, "Claim must fail closed with 400 on missing proof");
+    assert.ok(json.error.includes("proof") || json.error.includes("verification failed"));
+    assert.strictEqual(broadcastAttempted, false, "Payout must NEVER be broadcast when HTLC proof is missing");
+  });
+
+  // ── TEST 15: BASIC TRANSACTION → TX.FROM ───────────────────────────────────
+  it("TEST 15: Basic transaction (fromType=0) uses tx.from as verified recipient with basic forensic metadata", async () => {
+    const challengeId = `ch_basic_tx_${Date.now()}`;
+    const stakeTxHash = "3434343434343434343434343434343434343434343434343434343434343434";
+    const payoutTxHash = "8800000100020003000400050006000700080009000a000b000c000d000e000f";
+
+    setupMockBlockchain({
+      txData: {
+        hash: stakeTxHash,
+        from: normOther, // NQ48...
+        fromType: 0,
+        to: TREASURY_ADDRESS,
+        value: 500000,
+        executionResult: true,
+      },
+      payoutConfirmedHash: payoutTxHash,
+    });
+
+    await db.createChallenge(
+      {
+        id: challengeId,
+        title: "Basic Transaction Test",
+        type: "solo",
+        duration_days: 7,
+        stake_nim: 5,
+        stake_luna: "500000",
+        created_by: normProfile,
+        status: "completed",
+        starts_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+        ends_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+      },
+      {
+        wallet_address: normOther,
+        profile_wallet: normProfile,
+        stake_tx_hash: stakeTxHash,
+        stake_amount: 5,
+        stake_luna: "500000",
+        status: "completed",
+      }
+    );
+
+    const res = await fetch(`${serverBaseUrl}/api/challenges/${challengeId}/claim`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ walletAddress: normProfile }),
+    });
+
+    const json = await res.json();
+    assert.strictEqual(res.status, 200, `Claim must succeed: ${JSON.stringify(json)}`);
+    assert.strictEqual(json.recipient, normOther, "Recipient must be basic tx.from (NQ48)");
+    assert.strictEqual(json.forensics.resolution_source, "onchain_basic_sender");
+    assert.strictEqual(json.forensics.raw_from, normOther);
+    assert.strictEqual(json.forensics.from_type, 0);
+    assert.strictEqual(json.forensics.verified_funding_address, normOther);
+  });
+
+  // ── TEST 16: LEGACY STORED NQ29 → UPGRADED TO NQ59 ────────────────────────
+  it("TEST 16: Legacy stored NQ29 upgrades participant record in DB to NQ59 and pays NQ59", async () => {
+    const challengeId = `ch_legacy_upgrade_${Date.now()}`;
+    const stakeTxHash = "4545454545454545454545454545454545454545454545454545454545454545";
+    const payoutTxHash = "7700000100020003000400050006000700080009000a000b000c000d000e000f";
+
+    setupMockBlockchain({
+      txData: {
+        hash: stakeTxHash,
+        from: normHtlcContractNQ29, // NQ29...
+        fromType: 2,
+        to: TREASURY_ADDRESS,
+        value: 500000,
+        proof: VALID_HTLC_PROOF_HEX, // decodes to NQ59...
+        executionResult: true,
+      },
+      payoutConfirmedHash: payoutTxHash,
+    });
+
+    // Stored BEFORE fix: participant.wallet_address is the disposable HTLC contract NQ29
+    await db.createChallenge(
+      {
+        id: challengeId,
+        title: "Legacy Upgrade Bridge Test",
+        type: "solo",
+        duration_days: 7,
+        stake_nim: 5,
+        stake_luna: "500000",
+        created_by: normProfile,
+        status: "completed",
+        starts_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+        ends_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+      },
+      {
+        wallet_address: normHtlcContractNQ29, // Old bug: stored as HTLC contract
+        profile_wallet: normProfile,
+        stake_tx_hash: stakeTxHash,
+        stake_amount: 5,
+        stake_luna: "500000",
+        status: "completed",
+      }
+    );
+
+    // Verify stored participant has old NQ29 wallet
+    const beforePart = await db.getParticipant(challengeId, normHtlcContractNQ29);
+    assert.ok(beforePart);
+    assert.strictEqual(beforePart.wallet_address, normHtlcContractNQ29);
+
+    const res = await fetch(`${serverBaseUrl}/api/challenges/${challengeId}/claim`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ walletAddress: normProfile }),
+    });
+
+    const json = await res.json();
+    assert.strictEqual(res.status, 200, `Claim must succeed: ${JSON.stringify(json)}`);
+    assert.strictEqual(json.recipient, normUserFunder, "Payout recipient must be upgraded NQ59");
+    assert.notStrictEqual(json.recipient, normHtlcContractNQ29);
+
+    // Verify participant record was upgraded in DB to NQ59
+    const afterPart = await db.getParticipant(challengeId, normUserFunder);
+    assert.ok(afterPart, "Participant must be accessible under upgraded NQ59 wallet");
+    assert.strictEqual(afterPart.wallet_address, normUserFunder);
+    assert.strictEqual(afterPart.legacy_htlc_contract, normHtlcContractNQ29);
+  });
+
+  // ── TEST 17: RECIPIENT MISMATCH → LOWEST-LEVEL GUARD ABORTS WITH NO BROADCAST
+  it("TEST 17: Lowest-level sendStreakPayout guard rejects recipient mismatch and disallowed HTLC contract addresses", async () => {
+    let broadcastCount = 0;
+    globalThis.fetch = async (url, opts) => {
+      const urlStr = String(url || "");
+      if (urlStr.startsWith("http://127.0.0.1") || urlStr.startsWith("http://localhost")) {
+        return originalFetch(url, opts);
+      }
+      const bodyStr = opts?.body || "";
+      if (bodyStr.includes("sendRawTransaction")) {
+        broadcastCount++;
+      }
+      if (bodyStr.includes("getAccountByAddress")) {
+        return {
+          ok: true,
+          json: async () => ({
+            jsonrpc: "2.0",
+            result: { data: { type: 2, balance: 1000000 } }, // HTLC contract account type
+            id: 1,
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    };
+
+    // 17a. Mismatch: to !== verifiedFundingAddress
+    await assert.rejects(
+      async () => {
+        await sendStreakPayout({
+          to: normHtlcContractNQ29,
+          amountNim: 5,
+          verifiedFundingAddress: normUserFunder, // NQ59 != NQ29
+        });
+      },
+      (err) => {
+        assert.match(err.message, /CRITICAL PAYOUT INVARIANT VIOLATION/);
+        assert.match(err.message, /does not match verified funding address/);
+        return true;
+      }
+    );
+
+    // 17b. Disallowed HTLC contract address
+    await assert.rejects(
+      async () => {
+        await sendStreakPayout({
+          to: normHtlcContractNQ29,
+          amountNim: 5,
+          verifiedFundingAddress: normHtlcContractNQ29,
+          disallowedAddresses: [normHtlcContractNQ29],
+        });
+      },
+      (err) => {
+        assert.match(err.message, /CRITICAL PAYOUT INVARIANT VIOLATION/);
+        assert.match(err.message, /is an HTLC contract or disallowed address/);
+        return true;
+      }
+    );
+
+    // 17c. Missing verifiedFundingAddress
+    await assert.rejects(
+      async () => {
+        await sendStreakPayout({
+          to: normUserFunder,
+          amountNim: 5,
+          verifiedFundingAddress: null,
+        });
+      },
+      (err) => {
+        assert.match(err.message, /verifiedFundingAddress is required/);
+        return true;
+      }
+    );
+
+    // 17d. On-chain account has type 2 (HTLC contract)
+    await assert.rejects(
+      async () => {
+        await sendStreakPayout({
+          to: normHtlcContractNQ29,
+          amountNim: 5,
+          verifiedFundingAddress: normHtlcContractNQ29,
+        });
+      },
+      (err) => {
+        assert.match(err.message, /is an on-chain HTLC contract \(type: 2\)/);
+        return true;
+      }
+    );
+
+    // Verify 0 broadcasts
+    assert.strictEqual(broadcastCount, 0, "No transactions must be broadcast when guard rejects recipient");
   });
 });
